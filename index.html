@@ -1,0 +1,1913 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Teploměr: česká slovní hra, každý den tři tajná slova.">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="theme-color" content="#1a2430">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Teploměr">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect x=%2213%22 y=%222%22 width=%226%22 height=%2220%22 rx=%223%22 fill=%22%23e5452f%22/%3E%3Ccircle cx=%2216%22 cy=%2224%22 r=%226%22 fill=%22%23e5452f%22/%3E%3C/svg%3E">
+<title>Teploměr</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: přístroj vlevo (na mobilu vodorovně nahoře), vpravo hra; pozadím prosvítá záře, která se s teplotou barví do ruda */
+:root{
+  --bg:#eef1f5; --surface:rgba(255,255,255,.78); --surface-solid:#ffffff; --surface-2:#f3f6f9; --fg:#0f1620; --muted:#5b6878; --line:rgba(20,40,70,.10);
+  --glass:#f6fafd; --glass-edge:#9db0c3; --tick:#3e4c5b;
+  --hot:#e5452f; --cold:#2f74d0; --on-hot:#ffffff; --heat-l:46%; --track:#e3e9ef;
+  --shadow:0 1px 2px rgba(15,25,40,.06),0 8px 24px -12px rgba(15,25,40,.18);
+  --glow-h:214; --glow-a:.10;
+  --plate-hi:#fbfcfd; --plate-lo:#e3e9ef; --plate-edge:#9aa9b8; --plate-line:#c3cfda; --screw:#d9dfe5; --metal:#c9d1d9; --steam:#9fb0c0;
+  --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --f-body:"Atkinson Hyperlegible",system-ui,-apple-system,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#090c11; --surface:rgba(22,28,37,.72); --surface-solid:#151b24; --surface-2:#1b222d; --fg:#ecf1f6; --muted:#90a0b2; --line:rgba(255,255,255,.08);
+  --glass:#18202b; --glass-edge:#5f7389; --tick:#a7b6c6;
+  --hot:#ff5b43; --cold:#5a9bf0; --on-hot:#160603; --heat-l:62%; --track:#222b37;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -14px rgba(0,0,0,.7); --plate-hi:#232c38; --plate-lo:#161d26; --plate-edge:#52627a; --plate-line:#34404f; --screw:#3a4554; --metal:#56657a; --steam:#c7d3df; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#090c11; --surface:rgba(22,28,37,.72); --surface-solid:#151b24; --surface-2:#1b222d; --fg:#ecf1f6; --muted:#90a0b2; --line:rgba(255,255,255,.08);
+  --glass:#18202b; --glass-edge:#5f7389; --tick:#a7b6c6;
+  --hot:#ff5b43; --cold:#5a9bf0; --on-hot:#160603; --heat-l:62%; --track:#222b37;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px -14px rgba(0,0,0,.7); --plate-hi:#232c38; --plate-lo:#161d26; --plate-edge:#52627a; --plate-line:#34404f; --screw:#3a4554; --metal:#56657a; --steam:#c7d3df; color-scheme:dark}
+
+[hidden]{display:none!important}
+html{background:var(--bg)}
+body{color:var(--fg);background:
+  radial-gradient(60vmax 60vmax at 12% 28%,hsl(var(--glow-h) 90% 55% / var(--glow-a)),transparent 70%) fixed,
+  radial-gradient(50vmax 50vmax at 95% -5%,hsl(calc(var(--glow-h) + 30) 90% 60% / calc(var(--glow-a) * .6)),transparent 70%) fixed,
+  var(--bg)}
+body{font-family:var(--f-body);font-size:16px;line-height:1.5;min-height:100%;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:24px 64px}
+.layout.shake{animation:shake .5s cubic-bezier(.36,.07,.19,.97)}
+@keyframes shake{10%,90%{transform:translate(-2px,1px)}20%,80%{transform:translate(4px,-2px)}30%,50%,70%{transform:translate(-7px,3px)}40%,60%{transform:translate(7px,-3px)}}
+
+.layout{max-width:1000px;margin:0 auto;display:grid;grid-template-columns:300px minmax(0,1fr);gap:44px;align-items:start}
+.thermo-col{position:sticky;top:calc(20px + env(safe-area-inset-top, 0px));display:flex;flex-direction:column;align-items:center;gap:10px;
+  background:var(--surface);border:1px solid var(--line);border-radius:28px;padding:22px 14px 20px;box-shadow:var(--shadow);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+#thermo{width:100%;height:auto;display:block;overflow:visible}
+#thermo3d{display:none;width:100%;aspect-ratio:232/600}
+.has3d #thermo3d{display:block;filter:drop-shadow(0 14px 16px rgba(10,20,35,.32))}
+.has3d #thermo{display:none}
+.readout{text-align:center;display:flex;flex-direction:column;align-items:center;gap:2px}
+.readout .big{font-family:var(--f-display);font-weight:800;font-size:3rem;line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:hsl(var(--h,214) 78% var(--heat-l));transition:color .6s}
+.readout .word{font-family:var(--f-mono);font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding:3px 10px;border-radius:99px;background:var(--surface-2)}
+
+main{display:flex;flex-direction:column;gap:20px;min-width:0}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand{display:flex;flex-direction:column;gap:2px}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(2.4rem,7vw,3.8rem);line-height:.9;margin:0;letter-spacing:-.04em}
+h1 span{background:linear-gradient(90deg,var(--cold),var(--hot));-webkit-background-clip:text;background-clip:text;color:transparent}
+.meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pill{font-family:var(--f-mono);font-size:.78rem;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:6px 12px;display:inline-flex;gap:6px;align-items:center}
+.pill b{color:var(--fg);font-weight:600}
+.theme-tag{margin:-4px 0 0;font-family:var(--f-mono);font-size:.8rem;font-weight:600;color:var(--hot);display:flex;align-items:center;gap:8px}
+.bg-load{margin:-4px 0 0;font-family:var(--f-mono);font-size:.75rem;color:var(--muted)}
+.theme-tag::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--hot);box-shadow:0 0 0 4px color-mix(in srgb,var(--hot) 20%,transparent)}
+.pill select{font:inherit;color:var(--fg);background:transparent;border:0;padding:0;cursor:pointer}
+.lede{margin:0;color:var(--muted);max-width:52ch;font-size:1.05rem}
+
+form{display:flex;align-items:center;gap:6px;padding:6px;background:var(--surface-solid);border:1px solid var(--line);border-radius:99px;box-shadow:var(--shadow);transition:box-shadow .2s,border-color .2s}
+form:focus-within{border-color:color-mix(in srgb,var(--hot) 55%,transparent);box-shadow:0 0 0 5px color-mix(in srgb,var(--hot) 14%,transparent),var(--shadow)}
+#guess{flex:1;min-width:0;font:inherit;font-size:1.2rem;padding:10px 16px;border:0;background:transparent;color:var(--fg)}
+#guess:focus{outline:none}
+button{font:inherit;font-weight:700;cursor:pointer;border-radius:99px;border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:10px 18px;transition:transform .12s,background .2s,border-color .2s}
+button:hover:not(:disabled){border-color:color-mix(in srgb,var(--fg) 25%,transparent)}
+button:active:not(:disabled){transform:scale(.97)}
+button:focus-visible,select:focus-visible{outline:3px solid var(--hot);outline-offset:2px}
+button.primary{background:linear-gradient(135deg,var(--hot),color-mix(in srgb,var(--hot) 70%,#ff9a3c));border:0;color:var(--on-hot);padding:12px 24px;box-shadow:0 6px 18px -8px var(--hot)}
+button:disabled,#guess:disabled{opacity:.45;cursor:default}
+.status{min-height:1.6em;margin:-8px 0 0 18px;color:var(--muted);font-size:.95rem}
+.status.err{color:var(--hot)}
+.status button{padding:2px 12px;font-size:.9rem;margin-left:4px}
+
+.loading{display:flex;flex-direction:column;gap:6px;font-size:.9rem;color:var(--muted);padding-inline:18px}
+.loading .bar{height:4px;border-radius:99px;background:var(--track);overflow:hidden}
+.loading .bar i{display:block;height:100%;width:3%;background:linear-gradient(90deg,var(--cold),var(--hot));transition:width .2s}
+
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:10px 14px;display:flex;flex-direction:column;gap:2px;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.stat span{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.stat b{font-family:var(--f-display);font-weight:800;font-size:1.5rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.label{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700;margin:0 0 8px 4px}
+ul.rows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.row{display:grid;grid-template-columns:minmax(0,1fr) minmax(70px,30%) 4.6rem;align-items:center;gap:14px;
+  padding:11px 16px;background:var(--surface);border:1px solid var(--line);border-radius:16px;position:relative;overflow:hidden;
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.row::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,hsl(var(--h) 85% 55% / .10),transparent 45%);pointer-events:none}
+.row .w{font-weight:700;overflow-wrap:anywhere;min-width:0;font-size:1.02rem}
+.row .w small{font-family:var(--f-mono);font-weight:500;color:var(--muted);margin-left:8px;font-size:.72rem;white-space:nowrap;background:var(--surface-2);padding:1px 7px;border-radius:99px}
+.row .w em{font-style:normal;font-weight:400;color:var(--muted);font-size:.85rem;margin-left:6px}
+.tube{height:6px;background:var(--track);border-radius:99px;position:relative;overflow:hidden}
+.tube i{position:absolute;inset:0 auto 0 0;border-radius:99px;background:linear-gradient(90deg,var(--cold),hsl(var(--h) 80% var(--heat-l)))}
+.deg{font-family:var(--f-display);font-weight:800;font-size:1.1rem;text-align:right;font-variant-numeric:tabular-nums;color:hsl(var(--h) 75% var(--heat-l))}
+.row.last{border-color:hsl(var(--h) 75% 50% / .55);box-shadow:0 0 0 3px hsl(var(--h) 80% 50% / .12)}
+.row.hint .w::after{display:inline-block;white-space:nowrap;content:"nápověda";font-size:.64rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-left:8px}
+.row.new{animation:pop .45s cubic-bezier(.2,.9,.3,1.2)}
+.row.dup{animation:dup 1.4s ease-out}
+@keyframes dup{0%,30%{box-shadow:0 0 0 4px hsl(var(--h) 85% 55% / .65);transform:scale(1.02)}100%{box-shadow:0 0 0 0 hsl(var(--h) 85% 55% / 0);transform:none}}
+#acctBtn,#teamBtn,#board,#teamBar{display:none!important}
+/* účet, přátelé, tým */
+.pill{cursor:pointer}
+.pill.acct.in{color:var(--fg);border-color:color-mix(in srgb,var(--hot) 45%,transparent)}
+button.mini{padding:4px 10px;font-size:.78rem;font-weight:700}
+button.link{background:none;border:0;padding:4px 0;color:var(--muted);text-decoration:underline;font-weight:400}
+#go.wait{opacity:.6}
+.row .w em.by{font-style:normal;font-size:.68rem;font-weight:700;color:var(--muted);background:var(--surface-2);border-radius:99px;padding:1px 7px;margin-left:6px}
+dialog{border:1px solid var(--line);border-radius:22px;background:var(--surface-solid);color:var(--fg);padding:22px;width:min(92vw,420px);box-shadow:0 30px 80px -30px rgba(0,0,0,.5)}
+dialog::backdrop{background:rgba(10,14,20,.45);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+dialog h2{font-family:var(--f-display);font-weight:800;font-size:1.5rem;margin:0 0 6px}
+dialog form{display:flex;flex-direction:column;gap:10px;background:none;border:0;box-shadow:none;padding:0;border-radius:0}
+dialog form:focus-within{box-shadow:none;border:0}
+dialog label{display:flex;flex-direction:column;gap:4px;font-size:.85rem;font-weight:700}
+dialog input{font:inherit;font-weight:400;font-size:1rem;padding:10px 14px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg)}
+#teamNewRow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+dialog select{font:inherit;font-size:1rem;padding:10px 12px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg)}
+dialog input:focus{outline:3px solid color-mix(in srgb,var(--hot) 45%,transparent);outline-offset:0}
+dialog .inline{flex-direction:row}
+dialog .inline input{flex:1;min-width:0;text-transform:uppercase}
+.row-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.muted{color:var(--muted);font-size:.9rem;margin:4px 0}
+.or{margin-top:14px}
+.err{min-height:1.2em;margin:2px 0;font-size:.88rem;color:var(--hot)}
+.code{font-family:var(--f-mono);font-size:1.15rem;letter-spacing:.08em}
+.friends{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
+.friends li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 10px;border-radius:12px;background:var(--surface-2)}
+.board{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:16px 18px}
+.board h3{margin:0 0 8px;font-family:var(--f-display);font-weight:800}
+.tablewrap{overflow-x:auto}
+.board table{width:100%;border-collapse:collapse;font-size:.92rem}
+.board th{font-size:.72rem;color:var(--muted);text-align:left;font-weight:700;padding:4px 6px}
+.board td{padding:7px 6px;border-top:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}
+.board tr.me td{font-weight:700}
+.board td:first-child{white-space:normal}
+.teambar{background:var(--surface-solid);border:1px solid color-mix(in srgb,var(--hot) 40%,transparent);border-radius:20px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.teamtop{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:.92rem}
+.teamtop b{font-family:var(--f-mono);letter-spacing:.06em}
+.teamact{display:flex;gap:6px}
+.members{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.members li{font-size:.82rem;padding:3px 10px;border-radius:99px;background:var(--surface-2);border:1px solid var(--line)}
+.members li.turn{border-color:var(--hot);color:var(--fg);font-weight:700;box-shadow:0 0 0 3px color-mix(in srgb,var(--hot) 18%,transparent)}
+.votebox{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:14px;background:color-mix(in srgb,var(--hot) 10%,var(--surface-2));border:1px dashed color-mix(in srgb,var(--hot) 45%,transparent);font-size:.9rem;font-weight:700}
+.turnline{margin:0;font-weight:700;font-size:.92rem;display:flex;align-items:center;gap:8px}
+.prembox{margin:12px 0 4px;padding:12px 14px;border-radius:16px;background:var(--surface-2);display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.prembox p{margin:0}
+.qrbox{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin:10px 0}
+.qr{width:168px;height:168px;flex:none;background:#fff;border-radius:14px;padding:8px;box-sizing:border-box;display:grid;place-items:center;color:#333;font-size:.8rem;text-align:center}
+.qr svg{width:100%;height:100%;display:block}
+.paydata{margin:0;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:.92rem}
+.paydata dt{color:var(--muted)}.paydata dd{margin:0;font-family:var(--f-mono);font-weight:600;word-break:break-all}
+.state{font-weight:700;margin:6px 0}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.share{align-self:flex-start}
+.sharebox{width:100%;font:inherit;font-size:.9rem;line-height:1.45;padding:10px 12px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);resize:none}
+@keyframes pop{0%{transform:translateY(-6px) scale(.97);opacity:0}100%{transform:none;opacity:1}}
+.example .row{border-style:dashed;opacity:.75}
+
+.win{scroll-margin-top:150px;background:var(--surface-solid);border:1px solid color-mix(in srgb,var(--hot) 45%,transparent);border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:12px;position:relative;overflow:hidden;box-shadow:0 20px 50px -24px color-mix(in srgb,var(--hot) 70%,transparent)}
+.win::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 100% 0%,color-mix(in srgb,var(--hot) 18%,transparent),transparent 60%);pointer-events:none}
+.win h2{font-family:var(--f-display);font-weight:800;font-size:2rem;line-height:1.05;margin:0;letter-spacing:-.02em;text-wrap:balance}
+.win p{margin:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:.88rem;padding:4px 11px;border-radius:99px;border:1px solid var(--line);background:var(--surface-2)}
+.chip b{font-family:var(--f-mono);font-weight:500;color:hsl(var(--h) 70% var(--heat-l));margin-right:6px;font-size:.74rem}
+.src{font-size:.8rem;color:var(--muted)}
+.tools{display:flex;gap:8px;flex-wrap:wrap}
+details{color:var(--muted);font-size:.95rem;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px 18px}
+details summary{cursor:pointer;font-weight:700;color:var(--fg)}
+details ul{padding-left:1.2em;margin:.6em 0 0;display:flex;flex-direction:column;gap:6px}
+
+.mystats{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+.mystats h3{margin:0;font-family:var(--f-display);font-weight:800;font-size:1.15rem}
+.mynums{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.mynums div{display:flex;flex-direction:column}
+.mynums b{font-family:var(--f-display);font-weight:800;font-size:1.5rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.mynums span{font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.dist{display:flex;flex-direction:column;gap:4px}
+.dist div{display:grid;grid-template-columns:4.2rem minmax(0,1fr) 2rem;gap:8px;align-items:center;font-family:var(--f-mono);font-size:.78rem;color:var(--muted)}
+.dist i{display:block;height:12px;border-radius:99px;background:linear-gradient(90deg,var(--cold),var(--hot));min-width:4px}
+.dist div.me i{outline:2px solid var(--fg);outline-offset:1px}
+.dist em{font-style:normal;text-align:right;color:var(--fg)}
+@media (max-width:760px){.mynums{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.levels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.lvl{display:flex;flex-direction:column;align-items:flex-start;gap:0;text-align:left;border-radius:14px;padding:6px 12px;background:var(--surface);border:1px solid var(--line);position:relative;overflow:hidden}
+.lvl b{font-family:var(--f-display);font-weight:800;font-size:.92rem}
+.lvl span{font-size:.7rem;color:var(--muted);font-weight:400}
+.lvl[aria-selected="true"]{border-color:var(--hot);box-shadow:0 0 0 3px color-mix(in srgb,var(--hot) 16%,transparent)}
+.lvl .dots{position:absolute;top:8px;right:10px;display:flex;gap:3px}
+.lvl .dots i{width:6px;height:6px;border-radius:99px;background:var(--track)}
+.lvl[data-lvl="0"] .dots i:nth-child(-n+1),.lvl[data-lvl="1"] .dots i:nth-child(-n+2),.lvl[data-lvl="2"] .dots i:nth-child(-n+3){background:var(--hot)}
+.lvl.done span{color:var(--fg);font-weight:700}
+.sound{cursor:pointer;font-weight:600}
+#bum{position:fixed;left:0;top:0;width:min(46vw,300px);pointer-events:none;z-index:60;transform:translate(-50%,-50%) scale(0);opacity:0}
+#bum svg{width:100%;height:auto;display:block;overflow:visible}
+#bum polygon{fill:#ffd23f;stroke:#1a1208;stroke-width:5;stroke-linejoin:round}
+#bum text{font-family:var(--f-display);font-weight:800;font-size:54px;fill:#e5452f;stroke:#1a1208;stroke-width:3;paint-order:stroke;letter-spacing:-.02em}
+#bum.on{animation:bum 1.7s cubic-bezier(.2,1.6,.4,1) forwards}
+@keyframes bum{0%{transform:translate(-50%,-50%) scale(0) rotate(-20deg);opacity:1}18%{transform:translate(-50%,-50%) scale(1.15) rotate(6deg);opacity:1}30%{transform:translate(-50%,-50%) scale(1) rotate(-3deg)}75%{opacity:1;transform:translate(-50%,-50%) scale(1.05) rotate(0)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.3) rotate(4deg)}}
+.face .eye{fill:#fff}
+.face .pupil{fill:#1a1208}
+.face .line{fill:none;stroke:#1a1208;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round}
+.face .mouthfill{fill:#5a0d0d;stroke:#1a1208;stroke-width:3;stroke-linejoin:round}
+.face .cheek{fill:#ff8a8a;opacity:.55}
+.face .sweat{fill:#9fd3ff;stroke:#2f74d0;stroke-width:1.2}
+.face .star{fill:#ffd23f;stroke:#1a1208;stroke-width:1.2}
+.face.chatter .mouthg{animation:chatter .12s steps(2) infinite}
+@keyframes chatter{0%{transform:translateX(-1.5px)}100%{transform:translateX(1.5px)}}
+.face.dizzy .stars{animation:spin 2.4s linear infinite;transform-origin:0 -40px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.face .sweat{animation:drip 1.6s ease-in infinite}
+@keyframes drip{0%{transform:translateY(0);opacity:0}15%{opacity:1}100%{transform:translateY(14px);opacity:0}}
+.face .blink{animation:blink 4.5s infinite;transform-box:fill-box;transform-origin:center}
+@keyframes blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
+.frost .t-glass{stroke:#8fd0ff}
+@media (max-width:760px){.levels{gap:6px}.lvl{padding:5px 9px;border-radius:12px}.lvl b{font-size:.84rem}.lvl span{font-size:.64rem}.lvl .dots{top:7px;right:7px}}
+@media (prefers-reduced-motion:reduce){#bum.on{animation:none;opacity:0}.face *{animation:none!important}}
+
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;opacity:.07;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+button{box-shadow:0 2px 0 color-mix(in srgb,var(--fg) 14%,transparent)}
+button:active:not(:disabled){transform:translateY(2px);box-shadow:none}
+button.primary{box-shadow:0 4px 0 color-mix(in srgb,var(--hot) 60%,#000),0 10px 24px -10px var(--hot)}
+button.primary:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 color-mix(in srgb,var(--hot) 60%,#000)}
+.tube{height:10px;overflow:visible;margin-left:7px}
+.tube::before{content:"";position:absolute;left:-7px;top:50%;width:14px;height:14px;border-radius:50%;transform:translateY(-50%);background:hsl(var(--h) 80% var(--heat-l));box-shadow:0 0 10px hsl(var(--h) 85% 55% / .45)}
+.tube i{left:0;border-radius:0 99px 99px 0}
+.readout .big{text-shadow:0 0 28px hsl(var(--h,214) 85% 55% / .35)}
+.status{font-weight:700;color:var(--fg)}
+.status.err{color:var(--hot)}
+.confirm{display:flex;flex-direction:column;gap:10px;background:var(--surface);border:1px dashed var(--hot);border-radius:18px;padding:14px 18px}
+.confirm p{margin:0;font-weight:700}
+.hintcount{font-family:var(--f-mono);font-size:.8rem;margin-left:6px;opacity:.75}
+/* teploměr 2 */
+.t-plate{fill:url(#plate);stroke:var(--plate-edge);stroke-width:2}
+.t-plate-in{fill:none;stroke:var(--plate-line);stroke-width:1.5;stroke-dasharray:2 5}
+.t-screw{fill:var(--screw);stroke:var(--plate-edge);stroke-width:1.5}
+.t-screw-cut{stroke:var(--plate-edge);stroke-width:1.6;stroke-linecap:round}
+.t-glass{fill:var(--glass);stroke:var(--glass-edge);stroke-width:2.5}
+.t-inner{fill:var(--glass)}
+.t-cap{fill:var(--metal);stroke:var(--plate-edge);stroke-width:1.5}
+.t-merc{fill:var(--merc-fill)}
+.t-mglow{fill:var(--merc-fill);opacity:calc(.25 + var(--heat,0) * .55)}
+.t-shine{fill:none;stroke:#ffffff;stroke-opacity:.8;stroke-width:3.5;stroke-linecap:round}
+.t-tick{stroke:var(--tick);stroke-width:1.6}
+.t-tick.major{stroke-width:2.6}
+.t-tick2{opacity:.45}
+.t-num{fill:var(--tick);font-family:var(--f-mono);font-size:15px;font-weight:600}
+.t-zone{fill:var(--muted);font-family:var(--f-display);font-size:13px;font-weight:800;letter-spacing:.02em}
+.t-mark{fill:var(--fg)}
+.t-marktext{fill:var(--fg);font-family:var(--f-mono);font-size:11px;font-weight:600}
+.t-crack{fill:none;stroke:var(--glass-edge);stroke-width:2;stroke-linecap:round;opacity:0}
+.t-frost{fill:none;stroke:#bfe6ff;stroke-width:1.6;stroke-linecap:round;opacity:0;transition:opacity .8s}
+.cold .t-frost{opacity:.95}
+.cold .t-glass{stroke:#8fd0ff}
+.t-flame{transition:opacity .5s}
+.t-flame-in{transform-box:fill-box;transform-origin:50% 100%}
+.t-flame-o{fill:#ff8a1f;filter:drop-shadow(0 0 6px #ff7a00)}
+.t-flame-i{fill:#ffe27a}
+.t-flame-in path{animation:flicker .18s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:50% 100%}
+.t-flame-i{animation-duration:.13s!important}
+@keyframes flicker{from{transform:scale(1,1) skewX(-3deg)}to{transform:scale(.92,1.08) skewX(3deg)}}
+.t-burner{fill:var(--metal);stroke:var(--plate-edge);stroke-width:1.5}
+.t-steam path{fill:none;stroke:var(--steam);stroke-width:3.5;stroke-linecap:round;opacity:0}
+.warm .t-steam path{animation:steam 1.8s ease-out infinite}
+@keyframes steam{0%{opacity:0;transform:translate(0,0)}25%{opacity:.75}100%{opacity:0;transform:translate(0,-12px) scale(1.1)}}
+.h .t-steam path{animation-name:steamh}
+@keyframes steamh{0%{opacity:0;transform:translate(0,0)}25%{opacity:.75}100%{opacity:0;transform:translate(12px,0) scale(1.1)}}
+.broken .t-crack{opacity:1}
+.broken .t-clip{clip-path:url(#brk)}
+.h .t-num{font-size:20px}
+.h .t-marktext{font-size:18px}
+.bubble{fill:#fff;fill-opacity:.6}
+.boil .t-glass,.boil .t-merc{animation:jitter .12s linear infinite}
+@keyframes jitter{0%{transform:translate(0,0)}25%{transform:translate(.8px,-.8px)}50%{transform:translate(-.8px,.8px)}75%{transform:translate(.8px,.8px)}100%{transform:translate(0,0)}}
+.thermo-col{overflow:hidden}
+.flake{position:absolute;top:0;color:#9fd6ff;pointer-events:none;line-height:1;font-style:normal}
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:50}
+#flash{position:fixed;inset:0;pointer-events:none;z-index:49;background:radial-gradient(circle at var(--fx,50%) var(--fy,30%),#fff7d6,color-mix(in srgb,var(--hot) 60%,transparent) 35%,transparent 70%);opacity:0}
+#flash.on{animation:flash .9s ease-out}
+@keyframes flash{0%{opacity:.95}100%{opacity:0}}
+
+@media (max-width:760px){
+  /* pole pro tip drží pod teploměrem, aby šlo hádat a zároveň koukat do seznamu */
+  .guessbar{position:sticky;z-index:4;top:calc(var(--bar-h,110px) + 14px + env(safe-area-inset-top, 0px));padding:4px 0 2px;margin-top:-4px;border-radius:0 0 18px 18px}
+  .guessbar.stuck{background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);box-shadow:0 -12px 0 var(--bg),0 10px 18px -14px rgba(0,0,0,.35)}
+  .row{scroll-margin-top:calc(var(--bar-h,110px) + 120px)}
+  .win{scroll-margin-top:calc(var(--bar-h,110px) + 120px)}
+  body{padding-block:12px 56px}
+  .layout{grid-template-columns:minmax(0,1fr);gap:16px}
+  .thermo-col{z-index:5;background:var(--surface-solid);flex-direction:row;gap:10px;padding:10px 14px;border-radius:22px;top:calc(8px + env(safe-area-inset-top, 0px))}
+  #thermo{flex:1;min-width:0}
+  #thermo3d{flex:1;min-width:0;aspect-ratio:576/222}
+  .readout{min-width:76px}
+  .readout .big{font-size:1.8rem}
+  .readout .word{font-size:.62rem;padding:2px 8px}
+  .stat b{font-size:1.2rem}
+  .row{grid-template-columns:minmax(0,1fr) 52px 3.8rem;gap:8px;padding:10px 12px}
+  button.primary{padding:11px 18px}
+}
+
+@media (max-width:760px){
+  header{gap:10px}
+  h1{font-size:2.15rem}
+  .meta{flex-basis:100%;flex-wrap:wrap;gap:5px}
+  .pill .wide{display:none}
+  .pill{padding:5px 9px;font-size:.68rem;white-space:nowrap}
+  .pill select{max-width:7.5rem}
+  .lede{font-size:.92rem}
+  main{gap:14px}
+  .win{padding:18px}
+  .win h2{font-size:1.4rem}
+  .thermo-col{box-shadow:0 -14px 0 2px var(--bg),var(--shadow)}
+  .readout .big{font-size:1.6rem}
+}
+@media (max-width:370px){ .pill .wide{display:none} }
+@media (prefers-reduced-motion:reduce){ .row.dup{animation:none;outline:3px solid hsl(var(--h) 80% 50% / .6)} .layout.shake{animation:none} .boil .t-body{animation:none} .row.new{animation:none} #flash.on{animation:none} }
+</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}</style>
+</head>
+<body>
+
+<canvas id="fx" aria-hidden="true"></canvas>
+<div id="flash" aria-hidden="true"></div>
+<div id="bum" aria-hidden="true"><svg viewBox="-110 -80 220 160"><polygon points="0,-78 18,-40 58,-62 44,-22 104,-24 56,4 96,40 40,30 46,74 10,42 -14,80 -26,40 -70,66 -52,24 -104,22 -58,-6 -92,-48 -40,-30 -38,-74 -10,-40" /><text x="0" y="16" text-anchor="middle">BUM!</text></svg></div>
+
+<div class="layout">
+  <aside class="thermo-col" aria-label="Teploměr">
+    <canvas id="thermo3d" aria-hidden="true"></canvas>
+    <svg id="thermo" role="img" aria-label="Teploměr ukazuje nejteplejší tip"></svg>
+    <div class="readout"><span class="big" id="bigTemp">0 °C</span><span class="word" id="bigWord">zatím zima</span></div>
+  </aside>
+
+  <main>
+    <header>
+      <div class="brand"><h1>Teplo<span>měr</span></h1></div>
+      <div class="meta">
+        <span class="pill" id="dayLabel">Den 1</span>
+        <label class="pill"><span class="wide">Archiv</span> <select id="archive" aria-label="Vybrat den z archivu"></select></label>
+        <button type="button" class="pill sound" id="soundBtn" aria-pressed="true">Zvuk zap.</button>
+        <button type="button" class="pill" id="teamBtn">Hra v týmu</button>
+        <button type="button" class="pill acct" id="acctBtn">Přihlásit</button>
+      </div>
+    </header>
+    <p class="theme-tag" id="themeTag" hidden></p>
+    <section class="teambar" id="teamBar" hidden>
+      <div class="teamtop"><span>Týmová hra, kód <b id="teamCodeLbl"></b></span>
+        <span class="teamact"><button type="button" class="mini" id="teamLink">Pozvat</button><button type="button" class="mini" id="teamLeave">Opustit</button></span></div>
+      <ul class="members" id="teamMembers"></ul>
+      <p class="turnline"><span id="teamTurn"></span> <button type="button" class="mini" id="teamSkip" hidden>Přeskočit</button></p>
+      <div class="votebox" id="teamVote" hidden role="status"><span id="teamVoteText"></span>
+        <span class="teamact"><button type="button" class="mini" id="voteYes">Vzdát se</button><button type="button" class="mini" id="voteNo">Hrát dál</button></span></div>
+    </section>
+
+    <div class="levels" id="levels" role="tablist" aria-label="Dnešní hádanky"></div>
+
+    <div class="guessbar" id="guessbar">
+    <form id="form" autocomplete="off">
+      <input id="guess" type="text" placeholder="Napiš slovo…" aria-label="Tvůj tip" spellcheck="false" autocapitalize="off" disabled>
+      <button class="primary" id="go" type="submit" disabled>Hádat</button>
+    </form>
+    <div class="loading" id="loading">
+      <span id="loadText">Načítám slovník 63 000 slov…</span>
+      <span class="bar" aria-hidden="true"><i id="loadBar"></i></span>
+    </div>
+    <p class="status" id="status" role="status"></p>
+    </div>
+    <p class="sr-only" id="srLive" aria-live="assertive"></p>
+
+    <div class="win" id="win" hidden></div>
+    <div class="stats" id="stats"></div>
+
+    <section id="lastBox" hidden>
+      <p class="label">Poslední tip</p>
+      <ul class="rows" id="last"></ul>
+    </section>
+    <section id="listBox">
+      <p class="label" id="listLabel">Tvoje tipy</p>
+      <ul class="rows" id="list"></ul>
+    </section>
+
+    <div class="tools">
+      <button type="button" id="hintBtn" disabled>Nápověda</button>
+      <button type="button" id="giveBtn" disabled>Vzdát se</button>
+    </div>
+    <div class="confirm" id="giveConfirm" hidden>
+      <p id="giveText">Opravdu to chceš vzdát?</p>
+      <div class="tools"><button type="button" id="giveYes">Ano, ukaž slovo</button><button type="button" class="primary" id="giveNo">Ne, ještě to dám!</button></div>
+    </div>
+
+    <section class="board" id="board" hidden aria-label="Žebříček přátel"></section>
+    <section class="mystats" id="myStats" aria-label="Tvoje statistiky"></section>
+
+    <details>
+      <summary>Jak se hraje</summary>
+      <ul>
+        <li>Piš jakékoli české slovo, klidně v jiném tvaru. Hra „kočky“ nebo „psa“ převede na „kočka“ a „pes“.</li>
+        <li>Všech 62 849 slov ve slovníku je seřazeno podle toho, jak blízko mají významem k tajnému slovu. Číslo za slovem je jeho pořadí, takže č. 2 je nejbližší slovo vůbec.</li>
+        <li>Rtuť ukazuje tvůj zatím nejlepší tip. Šipka na stupnici ukazuje ten poslední.</li>
+        <li>Teplota roste s pořadím: do 10. místa slovo hoří (80 °C a víc), do 50. přihořívá, do 300. je teplo, do 1 500. vlažné a dál je zima.</li>
+        <li>Blízkost slov počítají dohromady dva modely: fastText, natrénovaný na miliardách slov z českého internetu, a ConceptNet, který zná vztahy typu „pes je zvíře“. Nejbližší slova ke každému tajnému slovu jsou navíc seřazená ručně, aby horká zóna odpovídala tomu, jak slova vnímají lidé. Slovní rodiny jsou z Českého etymologického slovníku Jiřího Rejzka a tvary ze slovníku pro kontrolu pravopisu z LibreOffice.</li>
+        <li>Každý den o půlnoci přibudou tři nová slova: lehké (běžná věc), střední a těžké (vzácnější nebo abstraktní slovo). Starší dny najdeš v archivu.</li>
+      </ul>
+    </details>
+  </main>
+</div>
+
+
+<dialog id="authDlg" data-mode="login">
+  <form id="authForm">
+    <h2 id="authTitle">Přihlášení</h2>
+    <p class="muted">Účet ti ukládá výsledky, statistiky a přátele na všech zařízeních. Hrát jde i bez něj.</p>
+    <label>Přezdívka<input id="authName" autocomplete="username" maxlength="20" required minlength="2"></label>
+    <label>Heslo<input id="authPass" type="password" autocomplete="current-password" required minlength="6"></label>
+    <p class="err" id="authErr" role="alert"></p>
+    <div class="row-btns"><button class="primary" id="authGo">Přihlásit</button><button type="button" data-close>Zavřít</button></div>
+    <button type="button" class="link" id="authSwitch">Nemám účet, chci ho založit</button>
+  </form>
+</dialog>
+<dialog id="acctDlg">
+  <h2>Přátelé</h2>
+  <p>Tvůj kód: <b class="code" id="myCode"></b> <button type="button" class="mini" id="copyCode">Kopírovat</button></p>
+  <p class="muted">Pošli ho kamarádům. Kdo ho zadá, uvidíte navzájem své dnešní výsledky.</p>
+  <div class="prembox" id="acctPrem"></div>
+  <form id="friendForm" class="inline"><input id="friendCode" placeholder="Kód kamaráda" maxlength="6" autocapitalize="characters" aria-label="Kód kamaráda"><button>Přidat</button></form>
+  <p class="err" id="friendErr" role="status"></p>
+  <ul class="friends" id="friendList"></ul>
+  <div class="row-btns"><button type="button" id="logoutBtn">Odhlásit</button><button type="button" class="primary" data-close>Hotovo</button></div>
+</dialog>
+<dialog id="teamDlg">
+  <h2>Týmová hra</h2>
+  <p class="muted">Hádáte spolu jeden teploměr a tipujete po řadě.</p>
+  <p id="teamWhat"></p>
+  <div class="inline" id="teamNewRow"><select id="teamLvl" aria-label="Obtížnost tajného slova pro tým"><option value="0">Lehké slovo</option><option value="1">Střední slovo</option><option value="2">Těžké slovo</option></select>
+  <button type="button" class="primary" id="teamNew">Založit místnost</button></div>
+  <div class="prembox" id="teamPrem" hidden>
+    <p><b>Zakládat místnosti můžeš s prémiem.</b> Za <span class="js-price">49</span> Kč na rok pozveš až 10 kamarádů a ti hrají zdarma.</p>
+    <button type="button" class="primary" id="teamBuy">Koupit prémium</button>
+  </div>
+  <p class="muted or">nebo se připoj kódem od kamaráda</p>
+  <form id="teamJoinForm" class="inline"><input id="teamCode" placeholder="Kód místnosti" maxlength="6" autocapitalize="characters" aria-label="Kód místnosti"><button>Připojit</button></form>
+  <p class="err" id="teamErr" role="alert"></p>
+  <div class="row-btns"><button type="button" data-close>Zavřít</button></div>
+</dialog>
+<dialog id="premDlg">
+  <h2>Prémium</h2>
+  <p class="muted">Za <b class="js-price">49</b> Kč na rok zakládáš týmové místnosti pro sebe a až 10 kamarádů. Kamarádi se připojují zdarma, denní hra zůstává zdarma pro všechny.</p>
+  <div class="qrbox">
+    <div class="qr" id="premQr" aria-label="QR kód pro platbu"></div>
+    <dl class="paydata"><dt>Účet</dt><dd id="premAcc">…</dd><dt>Částka</dt><dd id="premAmt">…</dd><dt>Variabilní symbol</dt><dd id="premVs">…</dd></dl>
+  </div>
+  <p class="muted">Naskenuj kód v aplikaci své banky. Variabilní symbol nech, jak je, podle něj se platba přiřadí k tvému účtu.</p>
+  <p class="state" id="premState" role="status"></p>
+  <div class="row-btns"><button type="button" class="primary" data-close>Zavřít</button></div>
+</dialog>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="tajna.js"></script>
+<script>
+const DIM=64, TOP=3000, FAR=99999, NCH=64, START=Date.UTC(2026,9,15);
+const $=id=>document.getElementById(id);
+const norm=s=>s.toLowerCase().trim().replace(/\s+/g," ");
+const bare=s=>s.normalize("NFD").replace(/[̀-ͯ]/g,"");
+const show=w=>w.replace(/_/g," ");
+const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+function todayNum(){const d=new Date();const t=Date.UTC(d.getFullYear(),d.getMonth(),d.getDate());return Math.max(1,Math.floor((t-START)/864e5)+1)}
+
+/* ---------- data ---------- */
+let CUR={hot:{},ban:{},asoc:{},vulg:[]};
+let WORDS=[],N=0,INDEX=new Map(),BARE=new Map(),FORM=new Map(),KNOWN=new Set(),FAMILY=new Map();
+async function fetchText(url,from,to,cb){
+  const setP=cb||setLoad;
+  const res=await fetch(url); if(!res.ok) throw new Error(url+" "+res.status);
+  const total=Number(res.headers.get("content-length"))||0;
+  if(!res.body||!total){const t=await res.text();setP(to);return t}
+  const reader=res.body.getReader(),chunks=[];let got=0;
+  for(;;){const {done,value}=await reader.read();if(done)break;chunks.push(value);got+=value.length;setP(from+(to-from)*got/total)}
+  const all=new Uint8Array(got);let o=0;for(const c of chunks){all.set(c,o);o+=c.length}
+  return new TextDecoder().decode(all);
+}
+function setLoad(p){$("loadBar").style.width=Math.round(3+97*p)+"%"}
+async function loadDict(){
+  const w=await fetchText("slova.txt",0,1);
+  WORDS=w.split("\n"); N=WORDS.length;
+  WORDS.forEach((x,i)=>{if(!INDEX.has(x))INDEX.set(x,i);const b=bare(x);if(!BARE.has(b))BARE.set(b,i)});
+}
+let formsDone=false,formsWait=null;const formsP=new Promise(r=>formsWait=r);
+async function loadExtras(){
+  try{
+    const t=await (await fetch("tvary.txt")).text();
+    t.split("\n").forEach((line,i)=>{ if(line) for(const f of line.split(" ")) if(!FORM.has(f)) FORM.set(f,i); });
+  }catch(e){console.warn(e)}
+  formsDone=true; formsWait();
+  try{
+    const f=await (await fetch("rodiny.json")).json();
+    for(const [ws,refs] of f) for(const w of ws) if(!FAMILY.has(w)) FAMILY.set(w,{words:ws,refs});
+    if(R&&(st.solved||st.gave)) renderWin();
+  }catch(e){console.warn(e)}
+  try{
+    const k=await (await fetch("znama.txt")).text();
+    k.split("\n").forEach(w=>{if(w){KNOWN.add(w);KNOWN.add(bare(w))}});
+  }catch(e){console.warn(e)}
+}
+// pásma podle pořadí: 10. místo = 80 °C (hoří), 50. = 60 °C (přihořívá), 300. = 40 °C (teplo), 1 500. = 20 °C (vlažné); mezi body plynule
+const TEMP_PTS=[[1,100],[10,80],[50,60],[300,40],[1500,20],[8000,8],[64000,0]];
+function temp(r){
+  if(r<=1) return 100;
+  for(let k=1;k<TEMP_PTS.length;k++){const [r1,t1]=TEMP_PTS[k-1],[r2,t2]=TEMP_PTS[k];
+    if(r<=r2){const f=(Math.log(r)-Math.log(r1))/(Math.log(r2)-Math.log(r1));return Math.min(99,Math.round(t1+(t2-t1)*f))}}
+  return 0;
+}
+const hue=t=>Math.round(214-214*Math.min(t,100)/100);
+function label(t){if(t>=100)return"vře!";if(t>=80)return"hoří";if(t>=60)return"přihořívá";if(t>=40)return"teplo";if(t>=20)return"vlažné";return"zima"}
+function findWord(raw){
+  const n=norm(raw).replace(/ /g,"_");
+  if(INDEX.has(n)) return INDEX.get(n);
+  if(FORM.has(n)) return FORM.get(n);
+  const b=bare(n); if(BARE.has(b)) return BARE.get(b);
+  return -1;
+}
+function suggest(raw){
+  const n=bare(norm(raw)).replace(/ /g,"_");
+  for(let L=Math.min(n.length-1,8);L>=4;L--){const p=n.slice(0,L);
+    for(let i=0;i<Math.min(N,30000);i++){const w=WORDS[i];if(!w.includes("_")&&bare(w).startsWith(p)&&bare(w)!==n)return w}}
+  return null;
+}
+
+/* ---------- teploměr (SVG) ---------- */
+const SVGNS="http://www.w3.org/2000/svg";
+let TH=null; // geometrie a prvky
+function el(tag,attrs,parent){const e=document.createElementNS(SVGNS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.append(e);return e}
+/* ---------- teploměr 2: přístroj kreslený v místních souřadnicích ----------
+   osa a vede od středu baňky (a=0) ke špičce trubice (a=L), osa b je napříč.
+   Na počítači se celý přístroj otočí svisle, na mobilu leží vodorovně. Texty, obličej, plamen a pára
+   jsou v neotočené vrstvě a jejich polohu přepočítává funkce map(). */
+const RB=46, IR=34, TW=17, IW=8.5, L=430, A0=78, A1=L-26;
+function buildThermo(){
+  const svg=$("thermo"); svg.innerHTML="";
+  const vertical=!matchMedia("(max-width:760px)").matches;
+  const g={v:vertical};
+  // bMin/bMax: šířka štítku napříč trubicí, aby se na něj vešla čísla i popisky
+  // štítek obepíná celý přístroj: kahan pod baňkou, páru nad špičkou i hvězdičky po výbuchu
+  if(vertical){ g.ox=116; g.oy=522; g.vb="0 12 232 628"; g.bMin=-108; g.bMax=108; g.p0=-114; g.p1=L+74; }
+  else { g.ox=66; g.oy=56; g.vb="0 0 576 164"; g.bMin=-52; g.bMax=104; g.p0=-62; g.p1=L+74; }
+  g.map=(a,b)=>vertical?[g.ox+b,g.oy-a]:[g.ox+a,g.oy+b];
+  svg.setAttribute("viewBox",g.vb); svg.classList.toggle("h",!vertical);
+  const defs=el("defs",{},svg);
+  const lg=(id,stops,x2,y2,attrs={})=>{const G=el("linearGradient",Object.assign({id,x1:"0",y1:"0",x2:x2??"0",y2:y2??"1"},attrs),defs);stops.forEach(([o,c,op])=>el("stop",{offset:o,"stop-color":c,"stop-opacity":op??1},G));return G};
+  const rg=(id,stops,attrs={})=>{const G=el("radialGradient",Object.assign({id},attrs),defs);stops.forEach(([o,c,op])=>el("stop",{offset:o,"stop-color":c,"stop-opacity":op??1},G));return G};
+  // napříč trubicí (osa b) – v místních souřadnicích je to osa y
+  lg("glassX",[[0,"#ffffff",.75],[.18,"#ffffff",.15],[.55,"#ffffff",.02],[.82,"#9fb4c8",.18],[1,"#5b6f84",.45]]);
+  lg("mercX",[[0,"#000",.28],[.25,"#fff",.42],[.45,"#fff",.12],[1,"#000",.32]]);
+  rg("bulbG",[[0,"#ffffff",.85],[.25,"#ffffff",.25],[.7,"#ffffff",0],[1,"#000",.25]],{cx:".35",cy:".32",r:".75"});
+  rg("bulbM",[[0,"#fff",.55],[.3,"#fff",0],[1,"#000",.35]],{cx:".38",cy:".33",r:".8"});
+  lg("plate",[[0,"var(--plate-hi)"],[1,"var(--plate-lo)"]],"1","1");
+  lg("band",[[0,"#2f74d0"],[.35,"#2bb6a8"],[.55,"#7bc043"],[.75,"#f2a23a"],[1,"#e5452f"]],"1","0");
+  const fl=el("filter",{id:"glow",x:"-80%",y:"-80%",width:"260%",height:"260%"},defs); el("feGaussianBlur",{stdDeviation:"7"},fl);
+  const fs=el("filter",{id:"soft",x:"-20%",y:"-20%",width:"140%",height:"140%"},defs); el("feGaussianBlur",{stdDeviation:"1.4"},fs);
+  // ulomená špička po výbuchu
+  const cp=el("clipPath",{id:"brk"},defs);
+  el("path",{d:`M-200 -200 L${L-34} -200 L${L-34} ${-TW-6} L${L-44} -8 L${L-30} -2 L${L-46} 6 L${L-32} 12 L${L-40} ${TW+6} L${L-40} 300 L-200 300 Z`},cp);
+
+  const inst=el("g",{transform:vertical?`translate(${g.ox} ${g.oy}) rotate(-90)`:`translate(${g.ox} ${g.oy})`},svg);
+  // štítek se stupnicí a šroubky
+  const plate=el("g",{class:"plate"},inst);
+  const B0=g.bMin, B1=g.bMax;
+  const P0=g.p0, P1=g.p1;
+  el("rect",{x:P0,y:B0,width:P1-P0,height:B1-B0,rx:28,class:"t-plate"},plate);
+  el("rect",{x:P0+6,y:B0+6,width:P1-P0-12,height:B1-B0-12,rx:23,class:"t-plate-in"},plate);
+  [[P0+16,B0+14],[P0+16,B1-14],[P1-16,B0+14],[P1-16,B1-14]].forEach(([x,y])=>{el("circle",{cx:x,cy:y,r:5,class:"t-screw"},plate);el("path",{d:`M${x-3} ${y-1.5} l6 3`,class:"t-screw-cut"},plate)});
+  // barevný pás stupnice
+  el("rect",{x:A0,y:TW+9,width:A1-A0,height:6,rx:3,fill:"url(#band)",opacity:.9},plate);
+  for(let t=0;t<=100;t+=5){
+    const a=A0+(A1-A0)*t/100, major=t%10===0;
+    el("line",{x1:a,x2:a,y1:TW+17,y2:TW+17+(major?14:8),class:"t-tick"+(major?" major":"")},plate);
+    el("line",{x1:a,x2:a,y1:-TW-5,y2:-TW-5-(major?9:5),class:"t-tick t-tick2"+(major?" major":"")},plate);
+  }
+  // námraza (viditelná v zimě)
+  g.frost=el("g",{class:"t-frost"},inst);
+  for(let k=0;k<9;k++){const a=40+k*44+(k%2)*14, b=(k%2?-1:1)*(TW-5);
+    const f=el("g",{transform:`translate(${a} ${b}) rotate(${k*23})`},g.frost);
+    for(let r=0;r<3;r++) el("path",{d:"M-6 0 H6 M-3 -1.5 l-2 -2.5 M3 -1.5 l2 -2.5 M-3 1.5 l-2 2.5 M3 1.5 l2 2.5",transform:`rotate(${r*60})`},f);}
+  // sklo
+  const glass=el("g",{class:"t-clip"},inst);
+  el("rect",{x:0,y:-TW,width:L,height:TW*2,rx:TW,class:"t-glass"},glass);
+  el("circle",{cx:0,cy:0,r:RB,class:"t-glass"},glass);
+  el("rect",{x:4,y:-TW+1.5,width:RB,height:TW*2-3,class:"t-inner"},glass);
+  // kovová záklopka na špičce
+  el("rect",{x:L-6,y:-TW+3,width:16,height:TW*2-6,rx:4,class:"t-cap"},glass);
+  // rtuť
+  const merc=el("g",{class:"t-clip"},inst);
+  g.mglow=el("rect",{x:0,y:-IW-3,width:10,height:IW*2+6,rx:IW+3,class:"t-mglow",filter:"url(#glow)"},merc);
+  g.bulbGlow=el("circle",{cx:0,cy:0,r:IR+6,class:"t-mglow",filter:"url(#glow)"},merc);
+  g.bulb=el("circle",{cx:0,cy:0,r:IR,class:"t-merc"},merc);
+  el("circle",{cx:0,cy:0,r:IR,fill:"url(#bulbM)"},merc);
+  g.col=el("rect",{x:0,y:-IW,width:10,height:IW*2,rx:IW,class:"t-merc"},merc);
+  g.colShade=el("rect",{x:0,y:-IW,width:10,height:IW*2,rx:IW,fill:"url(#mercX)"},merc);
+  g.bubbles=el("g",{},merc);
+  // lesk skla navrch
+  const shine=el("g",{class:"t-clip",style:"pointer-events:none"},inst);
+  el("rect",{x:RB-6,y:-TW,width:L-RB+4,height:TW*2,rx:TW,fill:"url(#glassX)"},shine);
+  el("circle",{cx:0,cy:0,r:RB,fill:"url(#bulbG)"},shine);
+  el("path",{d:`M${RB+6} ${-TW+5} H${L-24}`,class:"t-shine"},shine);
+  el("path",{d:`M${-RB*.62} ${-RB*.42} A ${RB*.74} ${RB*.74} 0 0 1 ${-RB*.1} ${-RB*.74}`,class:"t-shine"},shine);
+  // praskliny
+  el("path",{class:"t-crack",d:`M${L-40} -9 l-14 -3 l-10 5 l-18 -2 M${L-38} 7 l-16 4 l-9 -5 l-22 3 l-14 -2 M${L-44} 0 l-26 1`},inst);
+
+  // ----- neotočená vrstva -----
+  const ui=el("g",{},svg);
+  for(let t=0;t<=100;t+=20){
+    const a=A0+(A1-A0)*t/100;
+    const [x,y]=g.map(a,TW+44);
+    el("text",{class:"t-num",x,y:vertical?y+5:y+6,"text-anchor":vertical?"start":"middle"},ui).textContent=t+"°";
+  }
+  if(vertical){
+    [[0,"zima"],[20,"vlažné"],[40,"teplo"],[60,"přihořívá"],[80,"hoří"]].forEach(([t,l])=>{
+      const [x,y]=g.map(A0+(A1-A0)*(t+10)/100,-TW-22);
+      el("text",{class:"t-zone",x,y:y+4,"text-anchor":"end"},ui).textContent=l;});
+  }
+  // plamen kahanu pod baňkou
+  const [fx,fy]=g.map(0,0);
+  g.flame=el("g",{class:"t-flame",transform:`translate(${fx} ${fy+RB+(vertical?10:4)})`},ui);
+  el("rect",{x:-14,y:30,width:28,height:10,rx:3,class:"t-burner"},g.flame);
+  g.flameIn=el("g",{class:"t-flame-in"},g.flame);
+  el("path",{d:"M0 -22 C 12 -6 13 8 0 30 C -13 8 -12 -6 0 -22 Z",class:"t-flame-o"},g.flameIn);
+  el("path",{d:"M0 -6 C 6 4 6 14 0 28 C -6 14 -6 4 0 -6 Z",class:"t-flame-i"},g.flameIn);
+  // pára nad trubicí
+  const [sx,sy]=g.map(L+8,0);
+  g.steam=el("g",{class:"t-steam",transform:`translate(${sx} ${sy})`},ui);
+  for(let k=0;k<3;k++) el("path",{d:vertical?"M0 0 c-6 -6 6 -10 0 -16 c-6 -6 6 -10 0 -16":"M0 0 c6 -6 10 6 16 0 c6 -6 10 6 16 0",style:`animation-delay:${k*.55}s`,transform:vertical?`translate(${(k-1)*10} -6)`:`translate(4 ${(k-1)*10})`},g.steam);
+  // obličej na baňce
+  g.face=el("g",{class:"face",transform:`translate(${fx} ${fy}) scale(${IR/34})`},ui);
+  // značka posledního tipu
+  g.mark=el("g",{opacity:"0"},ui);
+  el("path",{class:"t-mark",d:vertical?"M0 0 l-12 -8 v16 z":"M0 0 l-8 -12 h16 z"},g.mark);
+  g.markText=el("text",{class:"t-marktext",x:vertical?-16:0,y:vertical?-12:-16,"text-anchor":vertical?"end":"middle"},g.mark);
+  const [tx,ty]=g.map(L,0); g.tipX=tx; g.tipY=ty;
+  g.inst=inst;
+  TH=g; faceBase=null;
+  drawLevel(curLevel,true); drawMark(); setBroken(brokenState); setFace(true);
+}
+const aOf=t=>A0+(A1-A0)*Math.max(0,Math.min(100,t))/100;
+let curLevel=0, targetLevel=0, anim=null, brokenState=false, lastMark=null;
+function mercColor(t){return `hsl(${hue(t)} 85% 52%)`}
+function drawLevel(t){
+  if(!TH) return;
+  t=Math.max(0,Math.min(100,t||0));
+  const g=TH, a=aOf(t);
+  [g.col,g.colShade].forEach(r=>r.setAttribute("width",a));
+  g.mglow.setAttribute("width",a+6);
+  const svg=$("thermo");
+  svg.style.setProperty("--merc-fill",mercColor(t));
+  svg.style.setProperty("--heat",(t/100).toFixed(3));
+  svg.classList.toggle("cold",t<20&&!brokenState);
+  svg.classList.toggle("warm",t>=60&&!brokenState);
+  svg.classList.toggle("hot",t>=80&&!brokenState);
+  g.flameIn.setAttribute("transform",`scale(${(.25+.85*Math.max(0,(t-35)/65)).toFixed(3)})`);
+  g.flame.style.opacity=t>=40&&!brokenState?1:0;
+  document.documentElement.style.setProperty("--glow-h",hue(t)); document.documentElement.style.setProperty("--glow-a",(0.10+0.24*t/100).toFixed(3));
+  const r=Math.round(t);
+  $("bigTemp").textContent=r+" °C"; $("bigTemp").style.setProperty("--h",hue(r));
+  $("bigWord").textContent=r===0&&!(st&&st.g.length)?"zatím zima":label(r);
+  setBubbles(t); setSnow(t); setFace();
+  if(T3.on) T3.level(t);
+}
+function animateTo(t,done){
+  targetLevel=t; if(anim) cancelAnimationFrame(anim);
+  if(reduce){curLevel=t;drawLevel(t);done&&done();return}
+  const from=curLevel, dur=700+Math.abs(t-from)*14, t0=performance.now();
+  const step=now=>{const k=Math.min(1,(now-t0)/dur), e=k<1?1-Math.pow(2,-10*k)*Math.cos(k*9):1; // pružné dosednutí rtuti
+    curLevel=from+(t-from)*Math.min(1.04,e); drawLevel(curLevel);
+    if(k<1) anim=requestAnimationFrame(step); else {curLevel=t;drawLevel(t);anim=null;done&&done()}};
+  anim=requestAnimationFrame(step);
+}
+function drawMark(){
+  if(T3.on) T3.mark(lastMark);
+  if(!TH) return; const g=TH;
+  if(lastMark==null){g.mark.setAttribute("opacity","0");return}
+  const [x,y]=g.map(aOf(lastMark.t),g.v?-TW-6:-TW-6);
+  g.mark.setAttribute("opacity","1");
+  g.mark.setAttribute("transform",`translate(${x} ${y})`);
+  g.markText.textContent=lastMark.t+"°";
+  g.markText.setAttribute("opacity","0");
+}
+let bubbleTimer=null;
+function setBubbles(t){
+  if(!TH) return;
+  $("thermo").classList.toggle("boil", t>=88 && !brokenState && !reduce);
+  if(t>=65 && !brokenState && !reduce){ if(!bubbleTimer) bubbleTimer=setInterval(spawnBubble,220) }
+  else if(bubbleTimer){clearInterval(bubbleTimer);bubbleTimer=null}
+}
+function spawnBubble(){
+  const g=TH; if(!g) return;
+  const c=el("circle",{class:"bubble",cx:-IR*.4+Math.random()*IR*.5,cy:(Math.random()-.5)*IW*1.2,r:1.6+Math.random()*2.6},g.bubbles);
+  c.animate([{transform:"translateX(0)",opacity:.95},{transform:`translateX(${aOf(curLevel)}px)`,opacity:0}],{duration:1200+Math.random()*900,easing:"ease-in"}).onfinish=()=>c.remove();
+}
+/* sněžení kolem přístroje, když je zima */
+let snowTimer=null;
+function setSnow(t){
+  const on=t<20&&!brokenState&&!reduce&&st&&st.g.length>0;
+  if(on&&!snowTimer) snowTimer=setInterval(spawnFlake,380);
+  if(!on&&snowTimer){clearInterval(snowTimer);snowTimer=null}
+}
+function spawnFlake(){
+  const col=document.querySelector(".thermo-col"); if(!col) return;
+  const f=document.createElement("i"); f.className="flake"; f.innerHTML='<svg viewBox="-10 -10 20 20" width="1em" height="1em"><g stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M0 -9V9M-7.8 -4.5L7.8 4.5M-7.8 4.5L7.8 -4.5M-2.5 -7L0 -4.5L2.5 -7M-2.5 7L0 4.5L2.5 7"/></g></svg>';
+  f.style.left=(Math.random()*100)+"%"; f.style.fontSize=(8+Math.random()*10)+"px";
+  col.append(f);
+  f.animate([{transform:"translateY(-10px) rotate(0)",opacity:0},{opacity:.9,offset:.15},{transform:`translateY(${col.clientHeight}px) rotate(${Math.random()*360}deg)`,opacity:0}],{duration:3500+Math.random()*2500,easing:"linear"}).onfinish=()=>f.remove();
+}
+function setBroken(b){ brokenState=b; if(T3.on) T3.broken(b); $("thermo").classList.toggle("broken",b); if(b){setBubbles(0);setSnow(100)} setFace(true); if(TH) TH.flame.style.opacity=0 }
+
+let resizeT=null; matchMedia("(max-width:760px)").addEventListener("change",()=>{buildThermo();if(T3.on)T3.layout()});
+
+
+/* ---------- obličej teploměru ---------- */
+let faceBase=null;
+function faceState(){
+  if(brokenState) return "dizzy";
+  const t=Math.round(curLevel);
+  if(t>=80) return "panic"; if(t>=60) return "sweat"; if(t>=40) return "smile"; if(t>=20) return "meh"; return "cold";
+}
+function setFace(force){
+  if(T3.on) T3.face(faceState());
+  if(!TH||!TH.face) return;
+  const f=faceState(); if(!force&&f===faceBase) return; faceBase=f;
+  const g=TH.face; g.innerHTML=""; g.setAttribute("class","face"+(f==="cold"&&!reduce?" chatter":"")+(f==="dizzy"?" dizzy":""));
+  $("thermo").classList.toggle("frost",f==="cold");
+  const eye=(x,big)=>{const e=el("g",{class:"blink"},g);el("circle",{class:"eye",cx:x,cy:-6,r:big?9:7},e);el("circle",{class:"pupil",cx:x+(big?0:1),cy:big?-6:-5,r:big?3:3.4},e)};
+  if(f==="dizzy"){
+    [-11,11].forEach(x=>el("path",{class:"line",d:`M${x-5} -11 l10 10 M${x+5} -11 l-10 10`},g));
+    el("path",{class:"line",d:"M-12 14 q4 -5 8 0 t8 0 t8 0"},g);
+    const st=el("g",{class:"stars"},g);
+    [[-20,-40],[18,-44],[0,-52]].forEach(([x,y])=>el("path",{class:"star",d:`M${x} ${y-6} l2 4.5 5 .5 -3.8 3.3 1.2 5 -4.4 -2.7 -4.4 2.7 1.2 -5 -3.8 -3.3 5 -.5z`},st));
+    return;
+  }
+  if(f==="cold"){
+    [-11,11].forEach(x=>el("path",{class:"line",d:`M${x-6} -6 q6 4 12 0`},g));
+    const m=el("g",{class:"mouthg"},g);
+    el("path",{class:"line",d:"M-13 13 l4 -4 4 4 4 -4 4 4 4 -4 4 4"},m);
+    el("path",{class:"line",d:"M-17 -18 l-4 -6 M17 -18 l4 -6",style:"stroke:#8fd0ff"},g);
+    return;
+  }
+  eye(-11,f==="panic"); eye(11,f==="panic");
+  if(f==="meh"){ el("path",{class:"line",d:"M-10 13 h20"},g); el("path",{class:"line",d:"M-17 -17 h10 M7 -17 h10"},g); }
+  if(f==="smile"){ el("path",{class:"line",d:"M-12 9 q12 12 24 0"},g); el("circle",{class:"cheek",cx:-21,cy:6,r:5},g); el("circle",{class:"cheek",cx:21,cy:6,r:5},g); }
+  if(f==="sweat"){ el("path",{class:"mouthfill",d:"M-13 8 q13 16 26 0 z"},g); el("circle",{class:"cheek",cx:-21,cy:6,r:5},g); el("circle",{class:"cheek",cx:21,cy:6,r:5},g);
+    el("path",{class:"sweat",d:"M22 -22 q5 8 0 11 q-5 -3 0 -11z"},g); }
+  if(f==="panic"){ el("ellipse",{class:"mouthfill",cx:0,cy:14,rx:7,ry:9},g); el("path",{class:"line",d:"M-19 -20 l9 -4 M19 -20 l-9 -4"},g);
+    el("path",{class:"sweat",d:"M23 -24 q5 8 0 11 q-5 -3 0 -11z"},g); el("path",{class:"sweat",d:"M-25 -14 q5 8 0 11 q-5 -3 0 -11z",style:"animation-delay:.7s"},g); }
+}
+
+/* ---------- vtipné hlášky ---------- */
+const QUIPS={
+  zima:["Brr, tady mrznou i tučňáci.","Ledová sprcha.","Teploměr si obléká svetr.","Tady by se dalo bruslit.","Studené jako čumák sněhuláka.","Zima jak v psírně.","Teploměru cvakají zuby."],
+  vlažné:["Vlažné jako čaj, na který jsi zapomněl.","Trochu to hřeje, ale jen trochu.","Jako lavička v březnu.","Ještě to chce přiložit pod kotel.","Teploměr zívá."],
+  teplo:["Už to začíná hřát.","Příjemně teplo, jen tak dál.","Teploměr si sundal šálu.","Dalo by se opalovat.","Tady už je jaro."],
+  přihořívá:["Přihořívá! Cítím kouř.","Teploměr se začíná potit.","Horká stopa!","Už jsi skoro tam.","Někdo otevřete okno!"],
+  hoří:["Hoří! Volejte hasiče!","Rtuť šplhá jako o závod!","Ještě kousek a bouchne to.","Teploměr se třese strachy.","Tohle už pálí jak pekáč."]
+};
+let lastQuip="";
+function quip(t){const L=QUIPS[label(t)]||QUIPS.zima;let q;do{q=L[Math.floor(Math.random()*L.length)]}while(L.length>1&&q===lastQuip);lastQuip=q;return q}
+
+/* ---------- zvuky (vznikají až po kliknutí hráče) ---------- */
+let SOUND=true; try{SOUND=localStorage.getItem("teplomer-zvuk")!=="0"}catch(e){}
+let AC=null;
+function ac(){ if(!SOUND) return null; try{ AC=AC||new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==="suspended") AC.resume(); }catch(e){AC=null} return AC }
+function beep(t){
+  const a=ac(); if(!a) return;
+  const o=a.createOscillator(), g=a.createGain(), n=a.currentTime;
+  o.type="sine"; o.frequency.setValueAtTime(220+t*6,n); o.frequency.exponentialRampToValueAtTime(260+t*9,n+.12);
+  g.gain.setValueAtTime(.0001,n); g.gain.exponentialRampToValueAtTime(.12,n+.02); g.gain.exponentialRampToValueAtTime(.0001,n+.22);
+  o.connect(g).connect(a.destination); o.start(n); o.stop(n+.25);
+}
+function boom(){
+  const a=ac(); if(!a) return;
+  const n=a.currentTime, len=1.4, buf=a.createBuffer(1,a.sampleRate*len,a.sampleRate), d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,2.2);
+  const src=a.createBufferSource(); src.buffer=buf;
+  const lp=a.createBiquadFilter(); lp.type="lowpass"; lp.frequency.setValueAtTime(2400,n); lp.frequency.exponentialRampToValueAtTime(90,n+1.1);
+  const g=a.createGain(); g.gain.setValueAtTime(.9,n); g.gain.exponentialRampToValueAtTime(.001,n+len);
+  src.connect(lp).connect(g).connect(a.destination); src.start(n);
+  const o=a.createOscillator(), og=a.createGain(); o.type="sine"; o.frequency.setValueAtTime(120,n); o.frequency.exponentialRampToValueAtTime(35,n+.6);
+  og.gain.setValueAtTime(.7,n); og.gain.exponentialRampToValueAtTime(.001,n+.7); o.connect(og).connect(a.destination); o.start(n); o.stop(n+.75);
+}
+// vibrace na mobilu (Android; iPhone je z webu nepodporuje), řídí se tlačítkem Zvuk
+function buzz(p){ if(!SOUND||reduce||!navigator.vibrate) return; try{navigator.vibrate(p)}catch(e){} }
+function renderSoundBtn(){const b=$("soundBtn");b.textContent=SOUND?"Zvuk zap.":"Zvuk vyp.";b.setAttribute("aria-pressed",String(SOUND))}
+
+/* ---------- výbuch ---------- */
+function explode(){
+  const g=TH, svg=$("thermo");
+  let sp; if(T3.on){ sp=T3.tipScreen(); T3.burst() } else { const pt=svg.createSVGPoint(); pt.x=g.tipX; pt.y=g.tipY; sp=pt.matrixTransform(svg.getScreenCTM()) }
+  const fl=$("flash"); fl.style.setProperty("--fx",sp.x+"px"); fl.style.setProperty("--fy",sp.y+"px");
+  fl.classList.remove("on"); void fl.offsetWidth; fl.classList.add("on");
+  const lay=document.querySelector(".layout"); lay.classList.remove("shake"); void lay.offsetWidth; lay.classList.add("shake");
+  setBroken(true);
+  boom(); buzz([70,50,160]);
+  const bm=$("bum"); bm.style.left=Math.min(innerWidth-120,Math.max(120,sp.x+60))+"px"; bm.style.top=Math.max(90,sp.y)+"px";
+  bm.classList.remove("on"); void bm.offsetWidth; bm.classList.add("on");
+  if(reduce) return;
+  const cv=$("fx"), dpr=Math.min(2,devicePixelRatio||1);
+  cv.width=innerWidth*dpr; cv.height=innerHeight*dpr; const ctx=cv.getContext("2d"); ctx.scale(dpr,dpr);
+  const parts=[];
+  for(let i=0;i<70;i++){const a=Math.random()*Math.PI*2, s=3+Math.random()*9;
+    parts.push({k:"drop",x:sp.x,y:sp.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-5,r:2+Math.random()*5,h:Math.random()*30,life:1});}
+  for(let i=0;i<26;i++){const a=Math.random()*Math.PI*2, s=4+Math.random()*8;
+    parts.push({k:"shard",x:sp.x,y:sp.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-4,r:4+Math.random()*9,rot:Math.random()*6,vr:(Math.random()-.5)*.4,life:1});}
+  const CONF=["#e5452f","#ffd23f","#2f74d0","#2bb673","#ff7ac8","#8b5cf6"];
+  for(let i=0;i<90;i++){const a=-Math.PI/2+(Math.random()-.5)*2.4, s=6+Math.random()*10;
+    parts.push({k:"conf",x:sp.x,y:sp.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,w:5+Math.random()*6,h:3+Math.random()*4,rot:Math.random()*6,vr:(Math.random()-.5)*.5,c:CONF[i%CONF.length],life:1.6});}
+  for(let i=0;i<14;i++){parts.push({k:"steam",x:sp.x+(Math.random()-.5)*30,y:sp.y,vx:(Math.random()-.5)*1.2,vy:-1-Math.random()*2,r:10+Math.random()*16,life:1});}
+  const dark=matchMedia("(prefers-color-scheme: dark)").matches||document.documentElement.dataset.theme==="dark";
+  let last=performance.now();
+  const tick=now=>{const dt=Math.min(2,(now-last)/16.7); last=now;
+    ctx.clearRect(0,0,innerWidth,innerHeight); let alive=0;
+    for(const p of parts){ if(p.life<=0) continue; alive++;
+      if(p.k==="steam"){p.x+=p.vx*dt;p.y+=p.vy*dt;p.r+=.5*dt;p.life-=.012*dt;
+        ctx.fillStyle=`rgba(${dark?"200,210,225":"170,180,195"},${.28*p.life})`;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fill();continue}
+      if(p.k==="conf"){p.vy+=.18*dt;p.vx*=.985;p.vy*=.985;p.x+=p.vx*dt;p.y+=p.vy*dt;p.rot+=p.vr*dt;p.life-=.006*dt;
+        ctx.globalAlpha=Math.max(0,Math.min(1,p.life));ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot);ctx.scale(1,Math.cos(p.rot*2));ctx.fillStyle=p.c;ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);ctx.restore();ctx.globalAlpha=1;continue}
+      p.vy+=.32*dt; p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=.99; p.life-=(p.k==="drop"?.009:.011)*dt;
+      if(p.y>innerHeight-6&&p.vy>0){p.vy*=-.35;p.vx*=.7;p.y=innerHeight-6}
+      ctx.globalAlpha=Math.max(0,Math.min(1,p.life*1.4));
+      if(p.k==="drop"){ctx.fillStyle=`hsl(${p.h} 85% 52%)`;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fill();
+        ctx.fillStyle="rgba(255,255,255,.55)";ctx.beginPath();ctx.arc(p.x-p.r*.3,p.y-p.r*.3,p.r*.3,0,7);ctx.fill()}
+      else {p.rot+=p.vr*dt;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot);
+        ctx.fillStyle=dark?"rgba(190,215,240,.55)":"rgba(150,180,210,.5)";ctx.strokeStyle=dark?"rgba(230,240,255,.9)":"rgba(90,120,150,.8)";ctx.lineWidth=1;
+        ctx.beginPath();ctx.moveTo(0,-p.r);ctx.lineTo(p.r*.7,p.r*.6);ctx.lineTo(-p.r*.5,p.r*.4);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore()}
+      ctx.globalAlpha=1; }
+    if(alive) requestAnimationFrame(tick); else ctx.clearRect(0,0,innerWidth,innerHeight);
+  };
+  requestAnimationFrame(tick);
+}
+
+/* ---------- 3D teploměr (Three.js) ----------
+   Skleněná trubice se rtutí, kovové kování a stupnice na štítku. Na počítači stojí svisle,
+   na mobilu leží. Když WebGL nejde, zůstane původní kreslený teploměr. */
+const T3={on:false};
+(function(){
+  if(typeof THREE==="undefined") return;
+  const col=document.querySelector(".thermo-col"), cv=document.getElementById("thermo3d");
+  let renderer;
+  try{ renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true,powerPreference:"high-performance"}) }catch(e){ return }
+  if(!renderer||!renderer.getContext()) return;
+  renderer.setPixelRatio(Math.min(2,devicePixelRatio||1));
+  renderer.outputEncoding=THREE.sRGBEncoding;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=.92;
+  renderer.setClearColor(0x000000,0);
+  renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate=false;
+  T3.on=true; col.classList.add("has3d");
+
+  const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const scene=new THREE.Scene();
+  const camera=new THREE.PerspectiveCamera(24,1,.1,100);
+
+  // prostředí pro odlesky skla a kovu: tmavá místnost se třemi světelnými panely
+  const pm=new THREE.PMREMGenerator(renderer);
+  const env=new THREE.Scene();
+  env.add(new THREE.Mesh(new THREE.SphereGeometry(20,24,12),new THREE.MeshBasicMaterial({color:0x2a3240,side:THREE.BackSide})));
+  const panel=(w,h,x,y,z,c,k)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({color:new THREE.Color(c).multiplyScalar(k),side:THREE.DoubleSide}));m.position.set(x,y,z);m.lookAt(0,0,0);env.add(m)};
+  panel(8,14,-9,4,6,0xffffff,5); panel(6,10,10,2,-2,0xdfe9ff,3); panel(14,4,0,12,4,0xfff1e0,3); panel(10,3,0,-10,6,0x8fb6ff,1.2);
+  scene.environment=pm.fromScene(env,.04).texture;
+
+  scene.add(new THREE.HemisphereLight(0xffffff,0x8090a0,.55));
+  const key=new THREE.DirectionalLight(0xffffff,1.15); key.position.set(-3.2,4.5,6); scene.add(key);
+  key.castShadow=true; key.shadow.mapSize.set(1024,1024); key.shadow.bias=-.0006; key.shadow.normalBias=.02;
+  Object.assign(key.shadow.camera,{left:-6,right:6,top:7,bottom:-7,near:1,far:20}); key.shadow.camera.updateProjectionMatrix();
+  const rim=new THREE.DirectionalLight(0xbfd6ff,.6); rim.position.set(4,2,-5); scene.add(rim);
+  const fire=new THREE.PointLight(0xff7a2a,0,6,2); scene.add(fire);
+
+  const glowTex=(()=>{const c=document.createElement("canvas");c.width=c.height=128;const g=c.getContext("2d"),r=g.createRadialGradient(64,64,0,64,64,64);
+    r.addColorStop(0,"rgba(255,255,255,1)");r.addColorStop(.35,"rgba(255,255,255,.45)");r.addColorStop(1,"rgba(255,255,255,0)");g.fillStyle=r;g.fillRect(0,0,128,128);return new THREE.CanvasTexture(c)})();
+  const stripTex=(()=>{const c=document.createElement("canvas");c.width=128;c.height=4;const g=c.getContext("2d"),r=g.createLinearGradient(0,0,128,0);
+    r.addColorStop(0,"rgba(255,255,255,0)");r.addColorStop(.5,"rgba(255,255,255,1)");r.addColorStop(1,"rgba(255,255,255,0)");g.fillStyle=r;g.fillRect(0,0,128,4);return new THREE.CanvasTexture(c)})();
+  // okraj skla svítí podle úhlu pohledu (Fresnel), takže je sklo vidět i proti tmavému štítku
+  const rimMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.FrontSide,
+    uniforms:{c:{value:new THREE.Color(0xcfe6ff)},k:{value:.9}},
+    vertexShader:"varying vec3 n;varying vec3 v;void main(){vec4 mv=modelViewMatrix*vec4(position,1.);n=normalize(normalMatrix*normal);v=normalize(-mv.xyz);gl_Position=projectionMatrix*mv;}",
+    fragmentShader:"uniform vec3 c;uniform float k;varying vec3 n;varying vec3 v;void main(){float f=pow(1.-abs(dot(normalize(n),normalize(v))),2.6);gl_FragColor=vec4(c*f*k,f*k);}"});
+  // osa přístroje: rtuť roste od Y0 (0 °C) k Y1 (100 °C)
+  const Y0=-2.55, Y1=3.0, yOf=t=>Y0+(Y1-Y0)*Math.max(0,Math.min(100,t))/100;
+  const TR=.27, MR=.115, BR=.64, BY=-3.45, TOPY=3.45;
+  const sway=new THREE.Group(), inner=new THREE.Group(); scene.add(sway); sway.add(inner);
+
+  const glassMat=new THREE.MeshPhysicalMaterial({color:0xffffff,metalness:0,roughness:.04,transparent:true,opacity:.2,clearcoat:1,clearcoatRoughness:.04,envMapIntensity:2.2,depthWrite:false,side:THREE.DoubleSide});
+  const metalMat=new THREE.MeshStandardMaterial({color:0xc9d1d9,metalness:1,roughness:.28,envMapIntensity:1.2});
+  const mercMat=new THREE.MeshStandardMaterial({color:0x2f74d0,metalness:.25,roughness:.18,emissive:0x000000,envMapIntensity:1});
+
+  // štítek se stupnicí
+  const PW=3.1, PH=9.5, PCY=-.15;
+  const plateMat=new THREE.MeshStandardMaterial({color:0xffffff,metalness:.1,roughness:.55});
+  const shape=new THREE.Shape(), rr=.42, x0=-PW/2, y0=-PH/2;
+  shape.moveTo(x0+rr,y0);shape.lineTo(x0+PW-rr,y0);shape.quadraticCurveTo(x0+PW,y0,x0+PW,y0+rr);shape.lineTo(x0+PW,y0+PH-rr);shape.quadraticCurveTo(x0+PW,y0+PH,x0+PW-rr,y0+PH);
+  shape.lineTo(x0+rr,y0+PH);shape.quadraticCurveTo(x0,y0+PH,x0,y0+PH-rr);shape.lineTo(x0,y0+rr);shape.quadraticCurveTo(x0,y0,x0+rr,y0);
+  const plate=new THREE.Mesh(new THREE.ExtrudeGeometry(shape,{depth:.16,bevelEnabled:true,bevelThickness:.05,bevelSize:.05,bevelSegments:3,curveSegments:10}),plateMat);
+  plate.position.set(0,PCY,-.62); inner.add(plate);
+  const faceCv=document.createElement("canvas"); const scaleTex=new THREE.CanvasTexture(faceCv); scaleTex.encoding=THREE.sRGBEncoding; scaleTex.anisotropy=4;
+  const scaleMesh=new THREE.Mesh(new THREE.ShapeGeometry(shape,10),new THREE.MeshStandardMaterial({map:scaleTex,metalness:.05,roughness:.6}));
+  // ShapeGeometry má UV v jednotkách tvaru, přepočítat na 0..1
+  {const uv=scaleMesh.geometry.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,(uv.getX(i)-x0)/PW,(uv.getY(i)-y0)/PH);uv.needsUpdate=true}
+  scaleMesh.position.set(0,PCY,-.40); inner.add(scaleMesh);
+  const slotMat=new THREE.MeshStandardMaterial({color:0x3a4350,metalness:.6,roughness:.5});
+  [[-1,1],[1,1],[-1,-1],[1,-1]].forEach(([sx,sy])=>{const s=new THREE.Mesh(new THREE.SphereGeometry(.1,20,10,0,Math.PI*2,0,Math.PI/2),metalMat);s.rotation.x=Math.PI/2;s.scale.y=.45;s.position.set(sx*(PW/2-.24),PCY+sy*(PH/2-.24),-.4);s.castShadow=true;inner.add(s);
+    const sl=new THREE.Mesh(new THREE.BoxGeometry(.16,.025,.03),slotMat);sl.position.set(s.position.x,s.position.y,-.355);sl.rotation.z=Math.random()*Math.PI;inner.add(sl)});
+
+  // trubice, baňka a kování
+  const tube=new THREE.Group(); inner.add(tube);
+  const tubeLen=TOPY-(BY+BR*.7);
+  const tubeMesh=new THREE.Mesh(new THREE.CylinderGeometry(TR,TR,tubeLen,40,1,true),glassMat); tubeMesh.position.y=(TOPY+BY+BR*.7)/2; tube.add(tubeMesh);
+  const capG=new THREE.Mesh(new THREE.SphereGeometry(TR,40,16,0,Math.PI*2,0,Math.PI/2),glassMat); capG.position.y=TOPY; tube.add(capG);
+  const ring=new THREE.Mesh(new THREE.CylinderGeometry(TR*1.18,TR*1.18,.28,40),metalMat); ring.position.y=TOPY-.05; tube.add(ring);
+  const ringTop=new THREE.Mesh(new THREE.SphereGeometry(TR*1.18,40,12,0,Math.PI*2,0,Math.PI/2),metalMat); ringTop.position.y=TOPY+.09; tube.add(ringTop);
+  const bulb=new THREE.Mesh(new THREE.SphereGeometry(BR,48,32),glassMat); bulb.position.y=BY; inner.add(bulb);
+  const neck=new THREE.Mesh(new THREE.TorusGeometry(TR*1.08,.06,12,40),metalMat); neck.rotation.x=Math.PI/2; neck.position.y=BY+BR*.78; inner.add(neck);
+  const mBulb=new THREE.Mesh(new THREE.SphereGeometry(BR*.8,40,24),mercMat); mBulb.position.y=BY; inner.add(mBulb);
+  const rimT=new THREE.Mesh(new THREE.CylinderGeometry(TR*1.01,TR*1.01,tubeLen,40,1,true),rimMat); rimT.position.y=tubeMesh.position.y; tube.add(rimT);
+  const rimC=new THREE.Mesh(new THREE.SphereGeometry(TR*1.01,40,16,0,Math.PI*2,0,Math.PI/2),rimMat); rimC.position.y=TOPY; tube.add(rimC);
+  const rimB=new THREE.Mesh(new THREE.SphereGeometry(BR*1.01,48,32),rimMat); rimB.position.y=BY; inner.add(rimB);
+  // podélný odlesk na trubici a bodový na baňce
+  const streak=new THREE.Mesh(new THREE.PlaneGeometry(.075,tubeLen*.92),new THREE.MeshBasicMaterial({map:stripTex,transparent:true,opacity:.75,blending:THREE.AdditiveBlending,depthWrite:false}));
+  streak.position.set(-TR*.48,tubeMesh.position.y,TR*.9); tube.add(streak);
+  const streak2=streak.clone(); streak2.material=streak.material.clone(); streak2.material.opacity=.28; streak2.scale.x=.6; streak2.position.x=TR*.55; tube.add(streak2);
+  const spark=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,transparent:true,opacity:.9,blending:THREE.AdditiveBlending,depthWrite:false})); spark.scale.set(.32,.32,1); spark.position.set(-BR*.42,BY+BR*.42,BR*.9); inner.add(spark);
+  // záře rtuti, když je horko
+  const glowCol=new THREE.Mesh(new THREE.PlaneGeometry(1.1,1),new THREE.MeshBasicMaterial({map:stripTex,color:0xff5a2a,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false})); glowCol.position.z=.05; inner.add(glowCol);
+  const glowBulb=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:0xff5a2a,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false})); glowBulb.scale.set(2.6,2.6,1); glowBulb.position.y=BY; inner.add(glowBulb);
+  // pára nad trubicí
+  const steamMat=new THREE.SpriteMaterial({map:glowTex,color:0xdfe6ee,transparent:true,opacity:0,depthWrite:false});
+  const steam=[]; for(let i=0;i<12;i++){const sp=new THREE.Sprite(steamMat.clone());sp.visible=false;inner.add(sp);steam.push({s:sp,life:0})}
+  const mCol=new THREE.Mesh(new THREE.CylinderGeometry(MR,MR,1,24),mercMat); inner.add(mCol);
+  const mTop=new THREE.Mesh(new THREE.SphereGeometry(MR,24,10,0,Math.PI*2,0,Math.PI/2),mercMat); inner.add(mTop);
+  // ulomený pahýl po výbuchu
+  const stubGeo=new THREE.CylinderGeometry(TR,TR,1.25,40,1,true);
+  {const p=stubGeo.attributes.position;for(let i=0;i<p.count;i++)if(p.getY(i)>0)p.setY(i,p.getY(i)+(Math.random()-.3)*.5);p.needsUpdate=true}
+  const stub=new THREE.Mesh(stubGeo,glassMat); stub.position.y=BY+BR*.7+.62; stub.visible=false; inner.add(stub);
+
+  [mBulb,mCol,mTop,ring,ringTop,neck].forEach(m=>m.castShadow=true); plate.receiveShadow=true; scaleMesh.receiveShadow=true;
+  // kahan a plamen
+  const burner=new THREE.Mesh(new THREE.CylinderGeometry(.26,.34,.32,32),metalMat); burner.position.y=BY-BR-.62; burner.castShadow=true; inner.add(burner);
+  const flameGlow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:0xff7a22,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false})); flameGlow.scale.set(1.4,1.6,1); flameGlow.position.y=BY-BR-.1; inner.add(flameGlow);
+  const flame=new THREE.Group(); flame.position.y=BY-BR-.42; inner.add(flame);
+  const fm=(c,o)=>new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:o,depthWrite:false});
+  const fOut=new THREE.Mesh(new THREE.ConeGeometry(.22,.62,24,1,true),fm(0xff4d12,.8)); fOut.position.y=.31; flame.add(fOut);
+  const fIn=new THREE.Mesh(new THREE.ConeGeometry(.12,.38,24,1,true),fm(0xffc23a,.95)); fIn.position.y=.2; flame.add(fIn);
+
+  // ukazatel posledního tipu
+  const markMat=new THREE.MeshStandardMaterial({color:0x0f1620,metalness:.2,roughness:.4});
+  const mark=new THREE.Mesh(new THREE.ConeGeometry(.12,.3,3),markMat); mark.rotation.z=Math.PI/2; mark.visible=false; inner.add(mark);
+
+  // obličej na baňce
+  const fcv=document.createElement("canvas"); fcv.width=fcv.height=256;
+  const faceTex=new THREE.CanvasTexture(fcv); faceTex.encoding=THREE.sRGBEncoding;
+  const faceMesh=new THREE.Mesh(new THREE.PlaneGeometry(BR*1.5,BR*1.5),new THREE.MeshBasicMaterial({map:faceTex,transparent:true,depthWrite:false}));
+  faceMesh.position.set(0,BY,BR+.02); inner.add(faceMesh);
+
+  // bublinky ve rtuti
+  const bubbleMat=new THREE.MeshStandardMaterial({color:0xffffff,transparent:true,opacity:.75,roughness:.1,metalness:0});
+  const bubbles=[]; for(let i=0;i<14;i++){const b=new THREE.Mesh(new THREE.SphereGeometry(1,10,8),bubbleMat);b.visible=false;inner.add(b);bubbles.push({m:b,life:0})}
+
+  // ---- lom světla: scéna bez skla se vykreslí do textury, sklo ji pak láme a zvětšuje jako čočka ----
+  const rt=new THREE.WebGLRenderTarget(2,2,{minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,format:THREE.RGBAFormat});
+  rt.texture.encoding=THREE.sRGBEncoding;
+  const RU={tScene:{value:rt.texture},res:{value:new THREE.Vector2(1,1)},px:{value:new THREE.Vector2(.1,.1)}};
+  const VS_N="varying vec3 n;varying vec3 v;void main(){vec4 mv=modelViewMatrix*vec4(position,1.);n=normalize(normalMatrix*normal);v=normalize(-mv.xyz);gl_Position=projectionMatrix*mv;}";
+  const refrMat=(R,str)=>new THREE.ShaderMaterial({transparent:true,depthWrite:true,
+    uniforms:{tScene:RU.tScene,res:RU.res,px:RU.px,R:{value:R},str:{value:str}},vertexShader:VS_N,
+    fragmentShader:"uniform sampler2D tScene;uniform vec2 res,px;uniform float R,str;varying vec3 n;varying vec3 v;"+
+      "void main(){vec3 nn=normalize(n);float f=1.-abs(dot(nn,normalize(v)));vec2 uv=gl_FragCoord.xy/res,o=-nn.xy*R*str*px;"+
+      "vec4 c=texture2D(tScene,uv+o);"+
+      "c.rgb*=mix(1.,.4,pow(f,2.4));gl_FragColor=c;}"});
+  const refrTube=new THREE.Mesh(new THREE.CylinderGeometry(TR*.985,TR*.985,tubeLen,48,1,true),refrMat(TR,.3)); refrTube.position.y=tubeMesh.position.y; tube.add(refrTube);
+  const refrCap=new THREE.Mesh(new THREE.SphereGeometry(TR*.985,40,12,0,Math.PI*2,0,Math.PI/2),refrMat(TR,.3)); refrCap.position.y=TOPY; tube.add(refrCap);
+  const refrBulb=new THREE.Mesh(new THREE.SphereGeometry(BR*.985,48,32),refrMat(BR,.2)); refrBulb.position.y=BY; inner.add(refrBulb);
+  [refrTube,refrCap,refrBulb].forEach(m=>m.renderOrder=-1);
+
+  // ---- námraza a kondenzace: textury kreslené jednou při startu ----
+  const mkTex=(w,h,draw)=>{const c=document.createElement("canvas");c.width=w;c.height=h;draw(c.getContext("2d"),w,h);const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.wrapS=THREE.RepeatWrapping;t.anisotropy=4;return t};
+  const frostDraw=n=>(g,w,h)=>{
+    g.fillStyle="rgba(228,240,255,.10)";g.fillRect(0,0,w,h);
+    for(let i=0;i<w*h/40;i++){g.fillStyle=`rgba(240,248,255,${Math.random()*.22})`;g.fillRect(Math.random()*w,Math.random()*h,1.5,1.5)}
+    g.strokeStyle="rgb(242,249,255)";g.lineCap="round";
+    const arm=(x,y,a,len,d)=>{const x2=x+Math.cos(a)*len,y2=y+Math.sin(a)*len;g.lineWidth=Math.max(.7,len/8);g.beginPath();g.moveTo(x,y);g.lineTo(x2,y2);g.stroke();
+      if(d>0)for(let k=1;k<=3;k++){const qx=x+Math.cos(a)*len*k/4,qy=y+Math.sin(a)*len*k/4,l=len*.34*(1-k/5);arm(qx,qy,a+1.05,l,d-1);arm(qx,qy,a-1.05,l,d-1)}};
+    for(let i=0;i<n;i++){const x=Math.random()*w,y=Math.random()*h,sz=5+Math.pow(Math.random(),2)*20,r=Math.random();g.globalAlpha=.3+Math.random()*.6;
+      for(const dx of [-w,0,w]) for(let k=0;k<6;k++) arm(x+dx,y,r+k*Math.PI/3,sz,1)}
+    g.globalAlpha=1};
+  const dropDraw=n=>(g,w,h)=>{
+    for(let i=0;i<n;i++){const x=Math.random()*w,y=Math.random()*h,r=1.4+Math.pow(Math.random(),2.5)*6.5,ry=r*(1+Math.random()*.35);
+      for(const dx of [-w,0,w]){const X=x+dx;
+        if(r>4.5&&Math.random()<.6){g.strokeStyle="rgba(210,230,250,.18)";g.lineWidth=r*.5;g.beginPath();g.moveTo(X,y-ry);g.lineTo(X+(Math.random()-.5)*2,y-ry-8-Math.random()*30);g.stroke()}
+        const gr=g.createRadialGradient(X-r*.25,y-ry*.3,0,X,y,r*1.1);gr.addColorStop(0,"rgba(255,255,255,.08)");gr.addColorStop(.7,"rgba(190,215,240,.30)");gr.addColorStop(1,"rgba(20,30,45,.55)");
+        g.fillStyle=gr;g.beginPath();g.ellipse(X,y,r,ry,0,0,7);g.fill();
+        g.fillStyle="rgba(255,255,255,.95)";g.beginPath();g.ellipse(X-r*.35,y-ry*.4,r*.28,r*.2,-.5,0,7);g.fill()}}};
+  const ovMat=t=>new THREE.MeshBasicMaterial({map:t,transparent:true,opacity:0,depthWrite:false});
+  const frostT=ovMat(mkTex(256,1024,frostDraw(70))), frostB=ovMat(mkTex(512,256,frostDraw(46)));
+  const dropT=ovMat(mkTex(256,1024,dropDraw(260))), dropB=ovMat(mkTex(512,256,dropDraw(200)));
+  // šev textury otočený dozadu, aby nebyl vidět
+  const ovTube=(r,m)=>{const o=new THREE.Mesh(new THREE.CylinderGeometry(TR*r,TR*r,tubeLen,48,1,true,Math.PI),m);o.position.y=tubeMesh.position.y;o.visible=false;tube.add(o);return o};
+  const ovBulb=(r,m)=>{const o=new THREE.Mesh(new THREE.SphereGeometry(BR*r,48,32,-Math.PI/2),m);o.position.y=BY;o.visible=false;inner.add(o);return o};
+  const frostMeshes=[ovTube(1.006,frostT),ovBulb(1.006,frostB)], dropMeshes=[ovTube(1.008,dropT),ovBulb(1.008,dropB)];
+
+  // ---- tetelení horkého vzduchu nad trubicí ----
+  const hazeU={tScene:RU.tScene,res:RU.res,t:{value:0},a:{value:0}};
+  const haze=new THREE.Mesh(new THREE.PlaneGeometry(1.2,.72),new THREE.ShaderMaterial({transparent:true,depthWrite:false,uniforms:hazeU,
+    vertexShader:"varying vec2 q;void main(){q=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",
+    fragmentShader:"uniform sampler2D tScene;uniform vec2 res;uniform float t,a;varying vec2 q;"+
+      "void main(){vec2 uv=gl_FragCoord.xy/res;float m=smoothstep(0.,.3,q.x)*smoothstep(1.,.7,q.x)*smoothstep(0.,.12,q.y)*smoothstep(1.,.35,q.y);"+
+      "vec2 o=vec2(sin(q.y*24.-t*6.+sin(q.x*8.+t*1.7)*2.),cos(q.x*19.+q.y*7.-t*4.))*vec2(.008,.004)*a*m;"+
+      "vec4 c=texture2D(tScene,uv+o);gl_FragColor=vec4(c.rgb,c.a*m*min(1.,a*4.));}"}));
+  haze.position.set(0,TOPY+.78,.32); haze.visible=false; inner.add(haze);
+
+  // ---- měkký kontaktní stín na štítku za baňkou a trubicí ----
+  const aoMat=(t,o)=>new THREE.MeshBasicMaterial({map:t,color:0x000000,transparent:true,opacity:o,depthWrite:false});
+  const aoBulb=new THREE.Mesh(new THREE.PlaneGeometry(BR*3.1,BR*3.1),aoMat(glowTex,.55)); aoBulb.position.set(.06,BY-.08,-.395); inner.add(aoBulb);
+  const aoTube=new THREE.Mesh(new THREE.PlaneGeometry(TR*3.4,tubeLen+.2),aoMat(stripTex,.42)); aoTube.position.set(.05,tubeMesh.position.y-.05,-.395); tube.add(aoTube);
+
+  // ---- barva hlavního světla podle teploty ----
+  const kCold=new THREE.Color(0xc4dcff), kMid=new THREE.Color(0xffffff), kHot=new THREE.Color(0xffc99a);
+  // co se nekreslí do textury pro lom (sklo samo a věci na jeho povrchu)
+  const noRT=[glowCol,glowBulb,tubeMesh,capG,bulb,stub,rimT,rimC,rimB,streak,streak2,spark,faceMesh,refrTube,refrCap,refrBulb,haze,...frostMeshes,...dropMeshes];
+
+  let horiz=false, level=0, broken=false, faceKey="", W=1, H=1;
+
+  function drawScale(){
+    const k=180, cw=Math.round(PW*k), ch=Math.round(PH*k);
+    faceCv.width=cw; faceCv.height=ch; const c=faceCv.getContext("2d");
+    // tmavý smaltovaný štítek v obou režimech, aby na něm bylo vidět sklo i rtuť
+    const hi="#2b3a4c", lo="#141c27", tick="#e3ebf3", line="rgba(255,255,255,.14)";
+    const g=c.createLinearGradient(0,0,cw,ch); g.addColorStop(0,hi); g.addColorStop(1,lo); c.fillStyle=g; c.fillRect(0,0,cw,ch);
+    for(let i=0;i<5000;i++){c.fillStyle=`rgba(255,255,255,${Math.random()*.035})`;c.fillRect(Math.random()*cw,Math.random()*ch,2,2)}
+    const sh=c.createLinearGradient(0,0,cw,0); sh.addColorStop(0,"rgba(255,255,255,.07)"); sh.addColorStop(.5,"rgba(255,255,255,0)"); sh.addColorStop(1,"rgba(0,0,0,.18)"); c.fillStyle=sh; c.fillRect(0,0,cw,ch);
+    c.shadowColor="rgba(0,0,0,.55)"; c.shadowOffsetY=3; c.shadowBlur=3;
+    const Y=t=>(PH/2-(yOf(t)-PCY))*k, X=x=>(x+PW/2)*k;
+    // barevný pruh
+    const band=c.createLinearGradient(0,Y(0),0,Y(100)); [[0,"#2f74d0"],[.35,"#2bb6a8"],[.55,"#7bc043"],[.75,"#f2a23a"],[1,"#e5452f"]].forEach(([o,cc])=>band.addColorStop(o,cc));
+    c.fillStyle=band; const bx=X(TR+.16); c.beginPath(); c.roundRect?c.roundRect(bx,Y(100),.09*k,Y(0)-Y(100),8):c.rect(bx,Y(100),.09*k,Y(0)-Y(100)); c.fill();
+    // vyrytá stupnice: tmavá hrana na straně ke světlu, světlá na odvrácené, pak samotná barva
+    c.shadowColor="transparent"; c.lineCap="round";
+    const paint=(ct,cw2)=>{
+      c.strokeStyle=ct; c.fillStyle=ct;
+      for(let t=0;t<=100;t+=5){const y=Y(t), maj=t%20===0, mid=t%10===0;
+        c.lineWidth=maj?5:mid?3.5:2.2; c.beginPath(); c.moveTo(X(TR+.3),y); c.lineTo(X(TR+.3+(maj?.36:mid?.26:.16)),y); c.stroke();
+        if(!horiz){ c.beginPath(); c.moveTo(X(-TR-.12),y); c.lineTo(X(-TR-.12-(mid?.2:.1)),y); c.stroke() } }
+      c.textBaseline="middle";
+      if(horiz){ // naležato na mobilu: jen 0, 50 a 100, zato větší
+        c.font=`600 100px "IBM Plex Mono",ui-monospace,monospace`; c.textAlign="center";
+        for(const t of [0,50,100]){c.save();c.translate(X(TR+.97),Y(t));c.rotate(-Math.PI/2);c.fillText(t+"°",0,0);c.restore()} }
+      else {
+        c.font=`600 42px "IBM Plex Mono",ui-monospace,monospace`; c.textAlign="left";
+        for(let t=0;t<=100;t+=20) c.fillText(t+"°",X(TR+.6),Y(t));
+        c.font=`700 34px "Atkinson Hyperlegible",system-ui,sans-serif`; c.textAlign="right"; c.fillStyle=cw2;
+        [[10,"zima"],[30,"vlažné"],[50,"teplo"],[70,"přihořívá"],[90,"hoří"]].forEach(([t,w])=>c.fillText(w,X(-TR-.38),Y(t))) } };
+    // světlo jde shora obrazovky; naležato je štítek otočený, takže horní hrana je v textuře vlevo
+    const ox=horiz?-2.5:0, oy=horiz?0:-2.5;
+    c.save(); c.translate(ox,oy); paint("rgba(0,0,0,.7)","rgba(0,0,0,.7)"); c.restore();
+    c.save(); c.translate(-ox,-oy); paint("rgba(255,255,255,.17)","rgba(255,255,255,.17)"); c.restore();
+    paint(tick,"#9fb2c6");
+    c.shadowColor="transparent"; c.strokeStyle=line; c.lineWidth=4; c.strokeRect(14,14,cw-28,ch-28);
+    scaleTex.needsUpdate=true;
+  }
+
+  /* živý obličej: výraz se plynule přelévá mezi náladami, mrká, kouká za kurzorem a reaguje na tipy */
+  const MOODS={ // smile -1..1, open 0..1, eye velikost, brow úhel (+ = starostlivé), blush, sweat
+    cold:{smile:-.15,open:0,eye:.85,brow:.6,blush:0,sweat:0},
+    meh:{smile:0,open:0,eye:1,brow:0,blush:0,sweat:0},
+    smile:{smile:.85,open:.15,eye:1,brow:-.2,blush:.7,sweat:0},
+    sweat:{smile:.55,open:.55,eye:1.05,brow:.3,blush:.9,sweat:.6},
+    panic:{smile:-.35,open:1,eye:1.3,brow:1,blush:.5,sweat:1},
+    dizzy:{smile:.1,open:.25,eye:1,brow:0,blush:.2,sweat:0}};
+  const F={mood:"cold",cur:Object.assign({},MOODS.cold),look:{x:0,y:0},lookT:{x:0,y:0},blink:0,nextBlink:2,react:null,reactT:0,idleLook:0,bounce:0,drops:[]};
+  let ptr=null;
+  addEventListener("pointermove",e=>{ptr={x:e.clientX,y:e.clientY,t:performance.now()}},{passive:true});
+  function drawFace(){
+    const c=fcv.getContext("2d"), m=F.cur, tt=tAcc, R=F.react, rk=R?Math.min(1,F.reactT/R.d):1;
+    c.clearRect(0,0,256,256); c.save(); c.translate(128,136-F.bounce*10); c.scale(3.4,3.4);
+    c.lineCap="round"; c.lineJoin="round";
+    const ink="#1d2430";
+    const shiver=F.mood==="cold"&&!reduce?Math.sin(tt*60)*.6:0, panicShake=F.mood==="panic"&&!reduce?Math.sin(tt*45)*.5:0;
+    c.translate(shiver+panicShake,0);
+    // tváře
+    if(m.blush>.02){c.fillStyle=`rgba(255,110,140,${.55*m.blush})`;[-21,21].forEach(x=>{c.beginPath();c.ellipse(x,6,5.5,4,0,0,7);c.fill()})}
+    const happy=R&&R.k==="yay"&&rk<1, hmm=R&&R.k==="hmm"&&rk<1, wow=R&&R.k==="wow"&&rk<1;
+    // obočí
+    const br=m.brow+(hmm?.6:0)-(happy?.3:0);
+    c.strokeStyle=ink; c.lineWidth=2.4;
+    [-1,1].forEach(sd=>{c.save();c.translate(sd*11,-19-(m.eye-1)*6-(wow?3:0));c.rotate(-sd*br*.35+(hmm&&sd>0?.35:0));c.beginPath();c.moveTo(-5,0);c.lineTo(5,0);c.stroke();c.restore()});
+    // oči
+    const lx=F.look.x*2.6, ly=F.look.y*2.2, blink=F.blink;
+    [-11,11].forEach(x=>{
+      if(F.mood==="dizzy"){ c.save();c.translate(x,-6);c.rotate(tt*(x<0?6:-6));c.beginPath();for(let a=0;a<14;a+=.3){const r=a*.5;c.lineTo(Math.cos(a)*r,Math.sin(a)*r)}c.lineWidth=1.8;c.stroke();c.restore();return }
+      if(happy){ c.beginPath();c.moveTo(x-6,-4);c.quadraticCurveTo(x,-12,x+6,-4);c.lineWidth=2.6;c.stroke();return }
+      if(F.mood==="cold"&&!wow){ c.beginPath();c.moveTo(x-6,-6);c.quadraticCurveTo(x,-2,x+6,-6);c.lineWidth=2.6;c.stroke();return }
+      const r=7*m.eye*(wow?1.25:1), open=Math.max(.08,1-blink);
+      c.save(); c.translate(x,-6); c.scale(1,open);
+      c.fillStyle="#fff"; c.beginPath(); c.arc(0,0,r,0,7); c.fill(); c.lineWidth=2/open>6?6:2; c.stroke();
+      c.fillStyle=ink; c.beginPath(); c.arc(lx*(r/7),ly*(r/7),r*.45,0,7); c.fill();
+      c.fillStyle="#fff"; c.beginPath(); c.arc(lx*(r/7)-r*.16,ly*(r/7)-r*.18,r*.15,0,7); c.fill();
+      c.restore();
+    });
+    // pusa
+    if(F.mood==="cold"&&!wow){ // drkotající zuby
+      const j=reduce?0:Math.abs(Math.sin(tt*30))*1.6;
+      c.fillStyle="#fff";c.beginPath();c.roundRect?c.roundRect(-11,9-j/2,22,7+j,3):c.rect(-11,9,22,7);c.fill();c.lineWidth=1.8;c.stroke();
+      c.beginPath();for(let x=-7;x<=7;x+=4.6){c.moveTo(x,9-j/2);c.lineTo(x,16+j/2)}c.moveTo(-11,12.5);c.lineTo(11,12.5);c.lineWidth=1.2;c.stroke();
+    } else {
+      const s=happy?1:hmm?-.25:m.smile, o=wow?1:hmm?0:m.open, w=happy?13:hmm?8:11+o*1.5, y=12+(hmm?Math.sin(tt*14)*1.2:0), off=hmm?4:0;
+      c.beginPath(); c.moveTo(-w+off,y-s*3); c.quadraticCurveTo(off,y+s*9+o*4,w+off,y-s*3);
+      if(o>.05){ c.quadraticCurveTo(off,y+s*9+o*14,-w+off,y-s*3); c.fillStyle="#5a1a12"; c.fill();
+        c.save();c.clip();c.fillStyle="#ff7f8f";c.beginPath();c.ellipse(off,y+s*7+o*11,w*.5,o*4,0,0,7);c.fill();c.restore() }
+      c.lineWidth=2.6; c.stroke();
+    }
+    // pot
+    for(const d of F.drops){c.fillStyle=`rgba(159,214,255,${Math.min(1,d.life*2)})`;c.save();c.translate(d.x,d.y);c.beginPath();c.moveTo(0,-4);c.quadraticCurveTo(4,2,0,4);c.quadraticCurveTo(-4,2,0,-4);c.fill();c.restore()}
+    // hvězdičky nad hlavou po výbuchu
+    if(F.mood==="dizzy"){for(let i=0;i<3;i++){const a=tt*2.2+i*2.09, x=Math.cos(a)*22, y=-30+Math.sin(a)*5;c.fillStyle="#ffd23f";c.save();c.translate(x,y);c.rotate(a);c.beginPath();for(let k=0;k<10;k++){const rr=k%2?2.2:5.2,aa=k*Math.PI/5;c.lineTo(Math.cos(aa)*rr,Math.sin(aa)*rr)}c.fill();c.restore()}}
+    // srdíčko při skvělém tipu
+    if(happy){const k=rk;c.globalAlpha=1-k;c.fillStyle="#ff4d6d";c.save();c.translate(20,-26-k*14);c.scale(.9,.9);c.beginPath();c.moveTo(0,3);c.bezierCurveTo(-7,-3,-4,-9,0,-5);c.bezierCurveTo(4,-9,7,-3,0,3);c.fill();c.restore();c.globalAlpha=1}
+    c.restore(); faceTex.needsUpdate=true;
+  }
+  function updateFace(dt){
+    const T=MOODS[F.mood]||MOODS.meh, k=Math.min(1,dt*5);
+    for(const n in T) F.cur[n]+=(T[n]-F.cur[n])*k;
+    // mrkání
+    F.nextBlink-=dt; if(F.nextBlink<=0&&F.blink===0){F.blinkT=0;F.nextBlink=2+Math.random()*3.5}
+    if(F.blinkT!=null){F.blinkT+=dt;F.blink=Math.sin(Math.min(1,F.blinkT/.16)*Math.PI);if(F.blinkT>=.16){F.blinkT=null;F.blink=0}}
+    // kam kouká: na kurzor, jinak se rozhlíží
+    const r=cv.getBoundingClientRect();
+    if(ptr&&performance.now()-ptr.t<2500){const dx=ptr.x-(r.left+r.width/2), dy=ptr.y-(r.top+r.height*(horiz?.5:.78));
+      const d=Math.hypot(dx,dy)||1, s=Math.min(1,d/220); F.lookT.x=dx/d*s; F.lookT.y=dy/d*s}
+    else {F.idleLook-=dt; if(F.idleLook<=0){F.idleLook=1.2+Math.random()*2.5; F.lookT=Math.random()<.4?{x:0,y:0}:{x:(Math.random()-.5)*1.6,y:(Math.random()-.5)*1.2}}}
+    if(F.react&&F.react.k==="hmm"){F.lookT={x:.9,y:-.3}}
+    F.look.x+=(F.lookT.x-F.look.x)*Math.min(1,dt*9); F.look.y+=(F.lookT.y-F.look.y)*Math.min(1,dt*9);
+    // reakce a poskakování
+    if(F.react){F.reactT+=dt; if(F.reactT>=F.react.d) F.react=null}
+    const yay=F.react&&F.react.k==="yay", jump=yay?Math.abs(Math.sin(F.reactT*9))*(1-F.reactT/F.react.d):0;
+    F.bounce=reduce?0:jump;
+    const breath=reduce?0:Math.sin(tAcc*2.2)*.02;
+    const sq=1+breath+(yay?Math.sin(F.reactT*18)*.06*(1-F.reactT/F.react.d):0);
+    [bulb,mBulb,faceMesh,rimB,refrBulb,frostMeshes[1],dropMeshes[1]].forEach(o=>o.scale.set(sq,2-sq,sq)); faceMesh.position.y=BY+(F.bounce*.08);
+    // kapky potu
+    if(F.cur.sweat>.3&&!reduce&&Math.random()<dt*F.cur.sweat*2.2) F.drops.push({x:(Math.random()<.5?-1:1)*(20+Math.random()*6),y:-22,life:1,v:6});
+    F.drops=F.drops.filter(d=>{d.v+=dt*40;d.y+=d.v*dt;d.life-=dt*.9;return d.life>0&&d.y<26});
+    drawFace();
+  }
+  function layout(){
+    horiz=matchMedia("(max-width:760px)").matches;
+    inner.rotation.z=horiz?-Math.PI/2:0;
+    faceMesh.rotation.z=horiz?Math.PI/2:0;
+    drawScale(); resize();
+  }
+  function resize(){
+    const r=cv.getBoundingClientRect(); W=Math.max(1,r.width); H=Math.max(1,r.height);
+    renderer.setSize(W,H,false); camera.aspect=W/H;
+    const mw=horiz?PH+.3:PW+.5, mh=horiz?PW+.1:PH+.4, tan=Math.tan(camera.fov*Math.PI/360);
+    const d=Math.max(mh/2/tan,mw/2/(tan*camera.aspect))*.93;
+    camera.position.set(0,0,d+.7); camera.lookAt(0,0,0); camera.updateProjectionMatrix();
+    const b=renderer.getDrawingBufferSize(new THREE.Vector2()); RU.res.value.copy(b);
+    rt.setSize(Math.max(1,b.x),Math.max(1,b.y));
+    const vh=2*tan*(d+.7); RU.px.value.set(1/(vh*camera.aspect),1/vh);
+  }
+
+  function setLevel(t){
+    busy(600); level=t; const y1=yOf(t), y0=BY+BR*.5, h=Math.max(.001,y1-y0);
+    mCol.scale.y=h; mCol.position.y=y0+h/2; mTop.position.y=y1;
+    const c=new THREE.Color().setHSL(hue(t)/360,.92,.46);
+    mercMat.color.copy(c); mercMat.emissive.copy(c).multiplyScalar(.12+.18*t/100);
+    const cold=t<20&&!broken;
+    glassMat.color.set(cold?0xdff1ff:0xffffff); glassMat.opacity=cold?.34:.2;
+    key.color.copy(broken?kMid:t<40?kCold.clone().lerp(kMid,t/40):kMid.clone().lerp(kHot,(t-40)/60));
+    rim.intensity=.6+(broken?0:.25*Math.max(0,(20-t)/20));
+    const fr=broken?0:Math.max(0,Math.min(1,(24-t)/24)), dr=broken?0:Math.max(0,Math.min(1,(t-66)/26));
+    frostT.opacity=fr; frostB.opacity=fr*.85; frostMeshes.forEach(m=>m.visible=fr>.01);
+    dropT.opacity=dr*.95; dropB.opacity=dr*.85; dropMeshes.forEach(m=>m.visible=dr>.01);
+  }
+  function setMark(m){
+    if(m==null||broken){mark.visible=false;return}
+    mark.visible=true; mark.position.set(-TR-.24,yOf(m.t),0); mark.rotation.z=-Math.PI/2;
+  }
+
+  // shards = střepy a kapky po výbuchu
+  let shards=[];
+  function burst(){
+    const shardMat=new THREE.MeshPhysicalMaterial({color:0xe8f4ff,roughness:.05,transparent:true,opacity:.55,clearcoat:1,envMapIntensity:2,side:THREE.DoubleSide});
+    for(let i=0;i<46;i++){const m=new THREE.Mesh(new THREE.TetrahedronGeometry(.07+Math.random()*.16),shardMat);
+      const y=BY+BR+Math.random()*(TOPY-BY-BR); m.position.set((Math.random()-.5)*.3,y,(Math.random()-.5)*.3);
+      const a=Math.random()*Math.PI*2, s=2+Math.random()*4.5;
+      shards.push({m,v:new THREE.Vector3(Math.cos(a)*s,2+Math.random()*4,Math.sin(a)*s+1.5),w:new THREE.Vector3(Math.random()*9,Math.random()*9,Math.random()*9),life:1,shard:true}); inner.add(m)}
+    for(let i=0;i<34;i++){const m=new THREE.Mesh(new THREE.SphereGeometry(.05+Math.random()*.09,12,8),mercMat);
+      const y=yOf(level*Math.random()); m.position.set(0,y,0);
+      const a=Math.random()*Math.PI*2, s=1.5+Math.random()*4;
+      shards.push({m,v:new THREE.Vector3(Math.cos(a)*s,1+Math.random()*5,Math.sin(a)*s+1),w:new THREE.Vector3(),life:1}); inner.add(m)}
+  }
+  function setBrokenState(b){
+    broken=b; tube.visible=!b; mCol.visible=!b; mTop.visible=!b; stub.visible=b; flame.visible=!b;
+    if(b) mark.visible=false;
+    setLevel(level);
+  }
+
+  let yaw=0, pitch=0;
+
+  let last=performance.now(), tAcc=0, visible=true, busyUntil=0;
+  const busy=ms=>{busyUntil=Math.max(busyUntil,performance.now()+ms)};
+  new IntersectionObserver(es=>{visible=es[0].isIntersecting}).observe(cv);
+  function frame(now){
+    requestAnimationFrame(frame);
+    if(!visible||document.hidden){ last=now; return }
+    // v klidu stačí ~30 snímků za sekundu, při animaci plná rychlost
+    if(now<busyUntil||shards.length) {} else if(now-last<30) return;
+    const dt=Math.min(.05,(now-last)/1000); last=now; tAcc+=dt;
+    const motion=!reduce;
+    // jemné houpání
+    { const idle=motion?Math.sin(tAcc*.35)*.1:.08; yaw+=(idle-yaw)*Math.min(1,dt*2.2); pitch+=(0-pitch)*Math.min(1,dt*2.2) }
+    sway.rotation.y=horiz?yaw*.6:yaw; sway.rotation.x=pitch+(horiz?.1:.05);
+    // var
+    const boil=level>=88&&!broken&&motion;
+    inner.position.set(boil?(Math.random()-.5)*.03:0,boil?(Math.random()-.5)*.03:0,0);
+    // plamen
+    const fOn=level>=40&&!broken, fs=.35+.9*Math.max(0,(level-35)/65);
+    flame.visible=fOn; if(fOn){const fl=motion?1+Math.sin(tAcc*23)*.08+Math.sin(tAcc*37)*.06:1;flame.scale.set(fs*(2-fl)*.9,fs*fl,fs*(2-fl)*.9)}
+    fire.intensity=fOn?1.6*fs:0; fire.position.copy(flame.getWorldPosition(new THREE.Vector3())).add(new THREE.Vector3(0,.3,.6));
+    // záře rtuti a páry
+    const hot=broken?0:Math.max(0,(level-45)/55), hc=new THREE.Color().setHSL(hue(level)/360,1,.55);
+    const colH=Math.max(.001,yOf(level)-(BY+BR*.5)); glowCol.scale.y=colH; glowCol.position.y=BY+BR*.5+colH/2; glowCol.visible=!broken;
+    glowCol.material.color.copy(hc); glowCol.material.opacity=hot*.55*(motion?1+Math.sin(tAcc*3)*.08:1);
+    glowBulb.material.color.copy(hc); glowBulb.material.opacity=hot*.6;
+    flameGlow.material.opacity=fOn?.55*fs*(motion?1+Math.sin(tAcc*19)*.12:1):0;
+    for(const p of steam){
+      if(p.life<=0){ if(level>=80&&!broken&&motion&&!horiz&&Math.random()<dt*5){p.life=1;p.s.visible=true;p.x=(Math.random()-.5)*.2;p.y=TOPY+.35;p.vx=(Math.random()-.5)*.25} else {p.s.visible=false;continue} }
+      p.life-=dt*.55; p.y+=dt*.8; p.x+=p.vx*dt; const sc=.35+(1-p.life)*1.1; p.s.scale.set(sc,sc,1); p.s.position.set(p.x,p.y,.1); p.s.material.opacity=Math.max(0,p.life)*.32; if(p.life<=0)p.s.visible=false }
+    // bublinky
+    for(const b of bubbles){
+      if(b.life<=0){ if(level>=65&&!broken&&motion&&Math.random()<dt*6){b.life=1;b.y=BY+(Math.random()-.5)*.3;b.x=(Math.random()-.5)*.06;b.s=.025+Math.random()*.035;b.m.visible=true} else {b.m.visible=false;continue} }
+      b.y+=dt*(1.6+Math.random()*.4); b.life=b.y<yOf(level)?1:0;
+      b.m.position.set(b.x,b.y,MR*.5); b.m.scale.setScalar(b.s); if(b.life<=0)b.m.visible=false;
+    }
+    // střepy
+    if(shards.length){ for(const s of shards){ s.v.y-=9.8*dt; s.m.position.addScaledVector(s.v,dt); s.m.rotation.x+=s.w.x*dt; s.m.rotation.y+=s.w.y*dt; s.life-=dt*.45;
+        if(s.m.position.y<BY-BR-.9&&s.v.y<0){s.v.y*=-.35;s.v.x*=.6;s.v.z*=.6;s.m.position.y=BY-BR-.9}
+        s.m.scale.setScalar(Math.max(.001,Math.min(1,s.life*2))) }
+      shards=shards.filter(s=>{if(s.life>0)return true;inner.remove(s.m);s.m.geometry.dispose();return false}) }
+    // tetelení
+    const ha=broken||!motion?0:Math.max(0,Math.min(1,(level-74)/24));
+    hazeU.a.value=ha; hazeU.t.value=tAcc; haze.visible=ha>.01;
+    // naležato je nad uzávěrem méně místa ke kraji štítku, tak je tetelení kratší
+    haze.scale.y=horiz?.62:1; haze.position.y=TOPY+(horiz?.6:.78);
+    updateFace(dt);
+    // 1) scéna bez skla do textury, 2) celá scéna; stíny se přepočítají jen v prvním průchodu
+    renderer.shadowMap.needsUpdate=true;
+    const vis=noRT.map(o=>o.visible); noRT.forEach(o=>o.visible=false);
+    renderer.setRenderTarget(rt); renderer.clear(); renderer.render(scene,camera);
+    noRT.forEach((o,i)=>o.visible=vis[i]); renderer.setRenderTarget(null);
+    renderer.render(scene,camera);
+  }
+
+  T3.level=t=>setLevel(t);
+  T3.mark=m=>setMark(m);
+  T3.face=f=>{if(f!==F.mood){const was=F.mood;F.mood=f;if(f==="dizzy")F.react=null;else if(was!=="dizzy"&&f!=="cold"&&["meh","smile","sweat","panic"].indexOf(f)>["meh","smile","sweat","panic"].indexOf(was))T3.react("wow")}};
+  T3.react=k=>{F.react={k,d:k==="yay"?1.1:k==="wow"?.7:1.2};F.reactT=0;busy(1400)};
+  T3.broken=b=>setBrokenState(b);
+  T3.burst=()=>{if(!reduce)burst()};
+  T3.layout=layout;
+  T3.tipScreen=()=>{const v=new THREE.Vector3(0,yOf(Math.max(level,60)),0);inner.localToWorld(v);v.project(camera);const r=cv.getBoundingClientRect();return {x:r.left+(v.x+1)/2*r.width,y:r.top+(1-v.y)/2*r.height}};
+  T3.retheme=()=>{drawScale();markMat.color.set("#f4f7fa");plateMat.color.set("#1a2430")};
+
+  addEventListener("resize",()=>{clearTimeout(T3._r);T3._r=setTimeout(resize,80)});
+  new ResizeObserver(()=>resize()).observe(cv);
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>T3.retheme());
+  new MutationObserver(()=>T3.retheme()).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+  if(document.fonts&&document.fonts.ready) document.fonts.ready.then(()=>drawScale());
+  layout(); T3.retheme(); setLevel(0);
+  requestAnimationFrame(frame);
+})();
+
+{const col=document.querySelector(".thermo-col"); const setH=()=>document.documentElement.style.setProperty("--bar-h",col.offsetHeight+"px");
+  setH(); if(window.ResizeObserver) new ResizeObserver(setH).observe(col);
+  // podklad pod polem pro tip jen ve chvíli, kdy je přilepené a tipy jezdí pod ním
+  const gb=$("guessbar"); let q=false;
+  const chk=()=>{q=false; const top=parseFloat(getComputedStyle(gb).top)||0; gb.classList.toggle("stuck",getComputedStyle(gb).position==="sticky"&&gb.getBoundingClientRect().top<=top+1&&scrollY>0)};
+  addEventListener("scroll",()=>{if(!q){q=true;requestAnimationFrame(chk)}},{passive:true}); addEventListener("resize",chk);}
+if("serviceWorker" in navigator&&location.protocol==="https:") addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+
+/* ---------- server ---------- */
+// Tajná slova a pořadí zná jen server (api.php). Prohlížeč posílá tip a dostane zpět jeho pořadí.
+
+let TOKEN=null, ME=null, INFO=null;
+try{TOKEN=localStorage.getItem("teplomer-token")}catch(e){}
+/* ---------- verze bez serveru (GitHub Pages): všechno se počítá v prohlížeči ----------
+   Tajná slova jsou v tajna.js, přesné pořadí 3 000 nejbližších slov v poradi/pXX.txt
+   a vzdálená slova řadí 64rozměrné vektory (vektory-64.txt), které se načtou na pozadí. */
+let VEC=null, NORMS=null, vecP=null;
+function loadVectors(){
+  if(!vecP) vecP=(async()=>{
+    const t=(await (await fetch("vektory-64.txt")).text()).trim(), bin=atob(t), v=new Int8Array(bin.length);
+    for(let i=0;i<bin.length;i++){const c=bin.charCodeAt(i);v[i]=c>127?c-256:c}
+    const n=new Float32Array(N);
+    for(let i=0;i<N;i++){let x=0,o=i*DIM;for(let k=0;k<DIM;k++){const y=v[o+k];x+=y*y}n[i]=Math.sqrt(x)||1}
+    VEC=v; NORMS=n;
+  })();
+  return vecP;
+}
+const chunkOf=w=>{let x=0;for(const c of w)x=(x*31+c.charCodeAt(0))%1000003;return x%NCH};
+const CHUNKS=new Map(), TOPS=new Map(), RANKS=new Map();
+function loadChunk(k){
+  if(!CHUNKS.has(k)) CHUNKS.set(k,(f=>fetch("poradi/"+f).then(r=>r.ok?r:fetch(f)))("p"+String(k).padStart(2,"0")+".txt").then(r=>r.ok?r.text():"").then(t=>{
+    for(const line of t.split("\n")){const j=line.indexOf("\t");if(j<0)continue;const b=atob(line.slice(j+1).trim()),u=new Uint16Array(b.length>>1);for(let i=0;i<u.length;i++)u[i]=b.charCodeAt(2*i)|b.charCodeAt(2*i+1)<<8;TOPS.set(line.slice(0,j),u)}
+  }));
+  return CHUNKS.get(k);
+}
+function localSecret(day,slot){
+  const th=themeOf(START+(day-1)*864e5);
+  return th?th[1][slot]:POOLS[slot][(day-1)%POOLS[slot].length];
+}
+// pořadí: nejdřív jen horká zóna (hned), po načtení vektorů celé
+async function ranking(secret,full){
+  let R0=RANKS.get(secret);
+  if(R0&&(R0.full||!full)) return R0;
+  await loadChunk(chunkOf(secret));
+  const si=INDEX.get(secret), top=TOPS.get(secret)||[];
+  if(full) await loadVectors();
+  const order=new Uint32Array(N), rank=new Uint32Array(N); let r=0;
+  order[r]=si; rank[si]=++r;
+  for(const i of top) if(i<N&&!rank[i]){order[r]=i;rank[i]=++r}
+  if(VEC){
+    const rest=[], sims=new Float32Array(N), o=si*DIM;
+    for(let i=0;i<N;i++){ if(rank[i]) continue;
+      let x=0,p=i*DIM;for(let k=0;k<DIM;k++)x+=VEC[p+k]*VEC[o+k];
+      x=x/(NORMS[i]*NORMS[si]); if(i>=15000) x-=0.1*Math.log1p((Math.min(i,60000)-15000)/2000);
+      sims[i]=x; rest.push(i) }
+    rest.sort((a,b)=>sims[b]-sims[a]);
+    for(const i of rest){order[r]=i;rank[i]=++r}
+  }
+  R0={order,rank,full:!!VEC}; RANKS.set(secret,R0); return R0;
+}
+async function api(a,body={}){
+  const fail=m=>{const e=new Error(m);e.code=400;throw e};
+  if(a==="info"){ const today=todayNum(), themes={};
+    for(let d=1;d<=today+1;d++){const th=themeOf(START+(d-1)*864e5); if(th) themes[d]=th[0]}
+    return {today,themes,user:null,price:0,pay:false} }
+  if(a==="guess"){ const s=localSecret(body.day,body.slot); let R0=await ranking(s,false);
+    if(!R0.rank[body.w]) R0=await ranking(s,true); return {r:R0.rank[body.w]} }
+  if(a==="hint"){ const R0=await ranking(localSecret(body.day,body.slot),false); return {w:R0.order[body.target-1],r:body.target} }
+  if(a==="reveal"){ const s=localSecret(body.day,body.slot), R0=await ranking(s,false);
+    return {secret:INDEX.get(s),top:Array.from(R0.order.slice(1,41))} }
+  fail("V téhle verzi nejsou účty ani týmová hra.");
+}
+function setToken(t){TOKEN=t;try{t?localStorage.setItem("teplomer-token",t):localStorage.removeItem("teplomer-token")}catch(e){}}
+
+/* ---------- stav hry ---------- */
+const LEVELS=["Lehká","Střední","Těžká"];
+let MAXDAY=todayNum();
+let num=MAXDAY, slot=0, secretIdx=-1, R=null, st=null, busy=false;
+const SRV={};                                  // průběh přihlášeného hráče ze serveru: SRV[den] = [3 hádanky]
+let ROOM=null;                                 // týmová místnost, ve které právě hraju
+const key=(d,s)=>"teplomer4-"+d+"-"+s;
+const dayTheme=d=>INFO&&INFO.themes&&INFO.themes[d]?[INFO.themes[d]]:null;
+const empty=()=>({g:[],solved:false,gave:false,hints:0,last:null});
+function fromServer(s){return {g:s.g.map(x=>({w:WORDS[x.w],r:x.r,hint:x.hint||undefined})),solved:s.solved,gave:s.gave,hints:s.hints,last:null}}
+function load(d,s){
+  if(ME&&SRV[d]) return SRV[d][s];
+  try{const v=JSON.parse(localStorage.getItem(key(d,s)));if(v&&Array.isArray(v.g))return v}catch(e){}
+  return empty();
+}
+function save(){
+  if(ROOM) return;
+  if(ME){ if(SRV[num]) SRV[num][slot]=st; return }   // přihlášenému ukládá průběh server
+  try{localStorage.setItem(key(num,slot),JSON.stringify(st))}catch(e){}
+}
+function renderLevels(){
+  const box=$("levels"); box.innerHTML=""; box.hidden=!!ROOM;
+  LEVELS.forEach((name,k)=>{
+    const v=k===slot?st:load(num,k);
+    const b=document.createElement("button");b.type="button";b.className="lvl"+(v.solved?" done":"");b.dataset.lvl=k;
+    b.setAttribute("role","tab");b.setAttribute("aria-selected",String(k===slot));
+    const t=document.createElement("b");t.textContent=name;
+    const sub=document.createElement("span");
+    const tries=v.g.filter(g=>!g.hint).length;
+    sub.textContent=v.solved?`Uhodnuto na ${tries}`:v.gave?"Vzdáno":tries?`${tries} ${tries===1?"pokus":tries<5?"pokusy":"pokusů"}`:"Nezačato";
+    const dots=document.createElement("span");dots.className="dots";dots.innerHTML="<i></i><i></i><i></i>";
+    b.append(t,sub,dots);b.onclick=()=>{if(k!==slot)open(num,k)};box.append(b);
+  });
+}
+const rankOf=w=>{const g=st.g.find(x=>x.w===w);return g?g.r:FAR};
+function setStatus(text,err,sugg){const s=$("status");s.textContent=text;s.classList.toggle("err",!!err);
+  if(sugg){const b=document.createElement("button");b.type="button";b.textContent=show(sugg)+"?";b.onclick=()=>submit(sugg);s.append(" Myslel jsi ",b)}}
+function rowEl(word,rank,o={}){
+  const t=temp(rank),li=document.createElement("li");
+  li.className="row"+(o.last?" last":"")+(o.hint?" hint":"")+(o.fresh?" new":"");
+  li.style.setProperty("--h",hue(t)); li.dataset.w=word;
+  const w=document.createElement("span");w.className="w";w.textContent=show(word);
+  if(o.typed&&bare(o.typed)!==bare(word)){const em=document.createElement("em");em.textContent="z „"+o.typed+"“";w.append(em)}
+  if(rank){const sm=document.createElement("small");sm.textContent="č. "+rank.toLocaleString("cs-CZ");w.append(sm)}
+  if(o.by){const by=document.createElement("em");by.className="by";by.textContent=o.by;w.append(by)}
+  const tube=document.createElement("span");tube.className="tube";tube.setAttribute("aria-hidden","true");
+  const f=document.createElement("i");f.style.width=Math.max(3,t)+"%";tube.append(f);
+  const d=document.createElement("span");d.className="deg";d.textContent=t+"\u00a0°C";d.title=label(t);
+  li.append(w,tube,d);return li;
+}
+function bestTemp(){ if(!st||!st.g.length) return 0; return temp(Math.min(...st.g.map(g=>g.r))) }
+function render(fresh){
+  $("dayLabel").innerHTML="";
+  if(ROOM){ $("dayLabel").append("Tým · "); const b=document.createElement("b"); b.textContent=["lehké","střední","těžké"][slot]+" slovo"; $("dayLabel").append(b); $("themeTag").hidden=true }
+  else { $("dayLabel").append("Den ");{const b=document.createElement("b");b.textContent=num;$("dayLabel").append(b)};if(num===MAXDAY)$("dayLabel").append(" · dnes");{const th=dayTheme(num);$("themeTag").hidden=!th;if(th)$("themeTag").textContent="Tematický den: "+th[0]} }
+  renderLevels(); renderRoom();
+  const ready=!!R&&!busy, done=st.solved||st.gave, myTurn=!ROOM||ROOM.turn===ROOM.me||ROOM.members.length<2;
+  $("guess").disabled=!ready||done||!myTurn; $("go").disabled=!ready||done||!myTurn;
+  $("guess").placeholder=ROOM&&!myTurn&&!done?"Počkej na svůj tah…":"Napiš slovo…";
+  $("hintBtn").disabled=!ready||done||st.hints>=MAXHINT; $("giveBtn").disabled=!ready||done; $("giveConfirm").hidden=true;
+  $("hintBtn").hidden=done||!!ROOM; $("giveBtn").hidden=done||!!(ROOM&&ROOM.vote&&ROOM.vote.ids.length);
+  $("archive").disabled=!!ROOM;
+  $("hintBtn").innerHTML="";$("hintBtn").append("Nápověda");{const c=document.createElement("span");c.className="hintcount";c.textContent=`${Math.max(0,MAXHINT-st.hints)}/${MAXHINT}`;$("hintBtn").append(c)}
+  const gs=st.g.map(g=>({...g,rank:g.r}));
+  const best=gs.reduce((m,g)=>Math.min(m,g.rank),Infinity);
+  $("stats").innerHTML="";
+  [["Pokusy",st.g.filter(g=>!g.hint).length],["Nápovědy",st.hints],["Nejblíž",isFinite(best)?"č. "+best.toLocaleString("cs-CZ"):"—"]].forEach(([k,v])=>{
+    const d=document.createElement("div");d.className="stat";const l=document.createElement("span");l.textContent=k;const b=document.createElement("b");b.textContent=v;d.append(l,b);$("stats").append(d)});
+  const last=gs.find(g=>g.w===st.last);
+  $("lastBox").hidden=!last||done; $("last").innerHTML="";
+  if(last) $("last").append(rowEl(last.w,last.rank,{last:true,hint:last.hint,typed:last.typed,by:last.by,fresh}));
+  lastMark=last?{t:temp(last.rank)}:null; drawMark();
+  const list=$("list"); list.innerHTML="";
+  $("listBox").classList.toggle("example",gs.length===0);
+  if(!gs.length){
+    $("listLabel").textContent="Příklad: takhle vypadají tipy, když je tajné slovo „pes“";
+    [["pejsek",2],["kočka",3],["štěně",5],["kost",13],["vodítko",19],["zahrada",347],["počítač",1238]].forEach(([w,r])=>list.append(rowEl(w,r)));
+  } else {
+    $("listLabel").textContent=ROOM?"Tipy týmu od nejteplejšího":"Tvoje tipy od nejteplejšího";
+    gs.sort((a,b)=>a.rank-b.rank).forEach(g=>list.append(rowEl(g.w,g.rank,{last:g.w===st.last&&!done,hint:g.hint,typed:g.typed,by:g.by})));
+  }
+  renderWin();
+}
+function renderWin(){
+  renderMyStats();
+  const win=$("win"),done=st.solved||st.gave; win.innerHTML=""; win.hidden=!(R&&done&&secretIdx>=0);
+  if(win.hidden) return;
+  const secret=WORDS[secretIdx], tries=st.g.filter(g=>!g.hint).length;
+  const h=document.createElement("h2");
+  h.textContent=st.solved?`BUM! Teploměr to nevydržel. Tajné slovo je „${show(secret)}“.`:`Teploměr si oddechl. Tajné slovo bylo „${show(secret)}“.`;
+  const p=document.createElement("p");
+  const verdict=!st.solved?(ROOM?"Nevadí, příští místnost dostane nové slovo.":"Nevadí, zítra jsou tu tři nová slova."):tries<=3?"To byl zásah jako blesk!":tries<=10?"Výborná práce, detektive.":tries<=30?"Pěkně jsi to dohřál.":tries<=80?"Vytrvalost se vyplácí.":"Nakonec to bouchlo. Teploměr ti tleská, i když s obvazem.";
+  const who=ROOM?"Tým uhodl":"Uhodnuto";
+  p.textContent=st.solved?`${who} na ${tries} ${tries===1?"pokus":tries<5?"pokusy":"pokusů"}${st.hints?` s ${st.hints} ${st.hints===1?"nápovědou":"nápovědami"}`:""}. ${verdict}`:verdict;
+  const sh=document.createElement("button");sh.type="button";sh.className="share";sh.textContent="Sdílet výsledek";sh.onclick=()=>doShare(sh);
+  win.append(h,p,sh);
+  if(R.top){
+    const lab=document.createElement("p");lab.className="label";lab.textContent="Nejbližší slova";
+    const chips=document.createElement("div");chips.className="chips";
+    R.top.forEach((wi,k)=>{const r=k+2,w=WORDS[wi];const c=document.createElement("span");c.className="chip";c.style.setProperty("--h",hue(temp(r)));
+      const b=document.createElement("b");b.textContent=r;c.append(b,show(w));chips.append(c)});
+    win.append(lab,chips);
+  }
+  const fam=FAMILY.get(secret);
+  if(fam){
+    const others=fam.words.filter(w=>w!==secret);
+    const grp=(t,l)=>{if(!l.length)return;const a=document.createElement("p");a.className="label";a.textContent=t;
+      const c=document.createElement("div");c.className="chips";l.forEach(w=>{const e=document.createElement("span");e.className="chip";e.textContent=show(w);c.append(e)});win.append(a,c)};
+    grp("Slovní rodina",others); grp("Příbuzné původem",fam.refs);
+    if(others.length||fam.refs.length){const s=document.createElement("p");s.className="src";s.textContent="Rodiny podle Českého etymologického slovníku (J. Rejzek).";win.append(s)}
+  }
+  if(ROOM){const b=document.createElement("button");b.type="button";b.textContent="Zpět k vlastním hádankám";b.onclick=()=>leaveRoom();win.append(b);return}
+  const next=[0,1,2].find(k=>k!==slot&&!load(num,k).solved&&!load(num,k).gave);
+  if(next!=null){const b=document.createElement("button");b.type="button";b.className="primary";b.textContent=`Další hádanka: ${LEVELS[next].toLowerCase()}`;b.onclick=()=>open(num,next);win.append(b)}
+  else if(num!==MAXDAY){const b=document.createElement("button");b.type="button";b.textContent="Zpět na dnešní hádanky";b.onclick=()=>open(MAXDAY,0);win.append(b)}
+}
+// tajné slovo a nejbližší slova; server je prozradí až po uhodnutí nebo vzdání
+async function reveal(give){
+  try{
+    const sol=st.g.find(g=>g.r===1);
+    const v=ROOM?await api("room_reveal",{code:ROOM.code}):await api("reveal",{day:num,slot,give:!!give,w:sol?INDEX.get(sol.w):undefined});
+    secretIdx=v.secret; R.top=v.top;
+  }catch(e){ setStatus(e.message,true) }
+}
+
+/* ---------- sdílení ---------- */
+const SHARE_URL=location.origin+location.pathname;
+const SQ=t=>t>=80?"🟥":t>=60?"🟧":t>=40?"🟨":t>=20?"🟩":"🟦";
+function shareText(){
+  const lines=[ROOM?`Teploměr, týmová hra (${["lehké","střední","těžké"][slot]} slovo)`:`Teploměr, den ${num}`];
+  const games=ROOM?[[slot,st]]:[0,1,2].map(k=>[k,k===slot?st:load(num,k)]);
+  for(const [k,v] of games){
+    if(!(v.solved||v.gave)) continue;
+    const tries=v.g.filter(g=>!g.hint).length;
+    let em=v.g.map(g=>g.hint?"💡":g.r===1?"💥":SQ(temp(g.r)));
+    if(em.length>16) em=[...em.slice(0,6),"…",...em.slice(-9)];
+    lines.push(`${ROOM?"Tým":LEVELS[k]}: ${v.solved?"uhodnuto na "+tries:"vzdáno po "+tries}`+(v.hints?` (${v.hints}× 💡)`:""),em.join(""));
+  }
+  lines.push(SHARE_URL); return lines.join("\n");
+}
+async function doShare(btn){
+  const text=shareText(), done=m=>{const o="Sdílet výsledek";btn.textContent=m;setTimeout(()=>btn.textContent=o,2200)};
+  if(navigator.share&&matchMedia("(pointer:coarse)").matches){
+    try{await navigator.share({text});return}catch(e){if(e&&e.name==="AbortError")return}
+  }
+  try{await navigator.clipboard.writeText(text);done("Zkopírováno ✓");return}catch(e){}
+  let ta=btn.nextElementSibling; if(!ta||!ta.classList.contains("sharebox")){ta=document.createElement("textarea");ta.className="sharebox";ta.readOnly=true;btn.after(ta)}
+  ta.value=text; ta.rows=text.split("\n").length; ta.focus(); ta.select(); done("Označeno, zkopíruj si to");
+}
+
+/* ---------- hádání ---------- */
+function setBusy(b){busy=b;$("go").classList.toggle("wait",b);render()}
+async function submit(raw){
+  if(!R||busy||st.solved||st.gave) return;
+  const text=norm(raw); if(!text) return;
+  const i=findWord(text);
+  if(i<0&&!formsDone){ setStatus("Vteřinku, ještě se učím skloňování…"); formsP.then(()=>submit(raw)); return }
+  if(i<0){
+    if(KNOWN.has(text)||KNOWN.has(bare(text))){setStatus(`„${text}“ je české slovo, ale teploměr na něj nereaguje. Zkus jiné.`,true);return}
+    const s=suggest(text);setStatus(`„${text}“ neznám, a to jsem přečetl půl internetu.`+(s?"":" Zkus jiné slovo."),true,s);return;
+  }
+  const w=WORDS[i];
+  if(st.g.some(g=>g.w===w)){
+    $("guess").value=""; st.last=w; render();
+    const t0=temp(rankOf(w)); setStatus(`„${show(w)}“ už ${ROOM?"tým zkoušel":"máš"}, ${t0} °C. Zvýraznil jsem ho v seznamu.`);
+    const el=[...$("list").children].find(li=>li.dataset.w===w);
+    if(el){el.classList.remove("dup");void el.offsetWidth;el.classList.add("dup");el.scrollIntoView({block:"nearest",behavior:reduce?"auto":"smooth"})}
+    return;
+  }
+  const tok=openTok; setBusy(true); setStatus("Měřím teplotu…");
+  let r;
+  try{
+    if(ROOM){ const v=await api("room_guess",{code:ROOM.code,w:i}); r=v.r; applyRoom(v,true); }
+    else r=(await api("guess",{day:num,slot,w:i})).r;
+  }catch(e){ setBusy(false); if(tok===openTok){ setStatus(e.message,true); if(e.code===403||e.code===400) pollRoom() } return }
+  if(tok!==openTok){ setBusy(false); return }
+  $("guess").value="";
+  if(!ROOM){ const entry={w,r}; if(bare(text)!==bare(w)) entry.typed=text; st.g.push(entry); }
+  st.last=w;
+  const prevBest=Math.min(...st.g.filter(g=>g.w!==w).map(g=>g.r),Infinity), t=temp(r);
+  if(r===1){ st.solved=true; await reveal(); }
+  save(); busy=false; render(true);
+  if(r===1) celebrate();
+  else {
+    animateTo(bestTemp());
+    if(T3.on) T3.react(st.g.length>1&&r<prevBest?"yay":(st.g.length===1&&r<300?"yay":"hmm"));
+    let msg=`${show(w)}: ${r.toLocaleString("cs-CZ")}. místo, ${t} °C. ${quip(t)}`;
+    if(st.g.length>1&&r<prevBest) msg+=` Nový rekord, o ${(prevBest-r).toLocaleString("cs-CZ")} míst blíž!`;
+    setStatus(msg); beep(t); if(t>=80) buzz([25,45,25]); else if(t>=60) buzz(18);
+    if(ROOM) nextTurnMsg();
+  }
+  if(ME&&!ROOM) refreshBoard();
+}
+function celebrate(){
+  setStatus(""); $("win").hidden=true;
+  animateTo(100,()=>{ $("thermo").classList.add("boil");
+    setTimeout(()=>{ $("thermo").classList.remove("boil"); explode(); setTimeout(()=>{renderWin();$("srLive").textContent=`Uhodnuto! Tajné slovo je ${show(WORDS[secretIdx]||"")}.`;$("win").hidden=false;$("win").scrollIntoView({behavior:reduce?"auto":"smooth",block:"nearest"})},500); }, reduce?0:900); });
+}
+const MAXHINT=3;
+async function hint(){
+  if(ROOM||busy) return;
+  if(st.hints>=MAXHINT){setStatus("Nápovědy došly. Teď už jen ty a tvůj mozek.");return}
+  const ranks=new Set(st.g.map(g=>g.r));
+  const best=Math.min(...ranks,Infinity);
+  const cap=[150,30,6][st.hints];             // 1. teplo, 2. přihořívá, 3. hoří
+  let target=Math.max(2,Math.min(cap,Math.floor(best/2)));
+  while(target>2&&ranks.has(target)) target--;
+  if(ranks.has(target)){setStatus("Tvůj nejlepší tip je blíž, než by ti nápověda pomohla. Jen tak dál!");return}
+  const tok=openTok; setBusy(true);
+  let v; try{ v=await api("hint",{day:num,slot,target}) }catch(e){ setBusy(false); setStatus(e.message,true); return }
+  if(tok!==openTok){ setBusy(false); return }
+  const w=WORDS[v.w];
+  st.hints++; if(!st.g.some(g=>g.w===w)) st.g.push({w,hint:true,r:target}); st.last=w; save(); busy=false; render(true);
+  animateTo(bestTemp());
+  const left=MAXHINT-st.hints;
+  setStatus(`Nápověda: „${show(w)}“ je na ${target}. místě. ${left?(left===1?"Zbývá poslední nápověda.":`Zbývají ${left} nápovědy.`):"To byla poslední nápověda, teď už sám!"}`);
+}
+let openTok=0;
+async function open(d,k){
+  const tok=++openTok; k=k??0;
+  if(ROOM) stopRoom();
+  if(ME&&!SRV[d]){ try{ SRV[d]=(await api("state",{day:d})).s.map(fromServer) }catch(e){ setStatus(e.message,true) } }
+  if(tok!==openTok) return;
+  num=d; slot=k; st=load(num,slot); $("archive").value=String(num); setStatus("");
+  R=WORDS.length?{top:null}:null; secretIdx=-1; busy=false;
+  if(R&&(st.solved||st.gave)) await reveal(st.gave&&!st.solved);
+  if(tok!==openTok) return;
+  setBroken(!!(R&&st.solved));
+  render();
+  if(R) animateTo(st.solved?100:bestTemp());
+}
+
+/* ---------- přihlášení ---------- */
+function authDlg(mode){
+  const dl=$("authDlg"); dl.dataset.mode=mode||"login"; $("authErr").textContent="";
+  $("authTitle").textContent=dl.dataset.mode==="login"?"Přihlášení":"Nový účet";
+  $("authGo").textContent=dl.dataset.mode==="login"?"Přihlásit":"Vytvořit účet";
+  $("authSwitch").textContent=dl.dataset.mode==="login"?"Nemám účet, chci ho založit":"Už mám účet, přihlásit se";
+  $("authPass").autocomplete=dl.dataset.mode==="login"?"current-password":"new-password";
+  if(!dl.open) dl.showModal(); $("authName").focus();
+}
+async function authSubmit(e){
+  e.preventDefault();
+  const mode=$("authDlg").dataset.mode, name=$("authName").value.trim(), pass=$("authPass").value;
+  $("authGo").disabled=true; $("authErr").textContent="";
+  try{
+    const v=await api(mode==="login"?"login":"register",{name,pass});
+    setToken(v.token); ME=v.user; $("authDlg").close(); $("authPass").value="";
+    await importLocal(); for(const k in SRV) delete SRV[k];
+    renderAuth(); await open(num,slot); refreshBoard(); joinFromUrl();
+  }catch(err){ $("authErr").textContent=err.message }
+  $("authGo").disabled=false;
+}
+// rozehrané hry z prohlížeče se po přihlášení přenesou na účet (pořadí znovu spočítá server)
+async function importLocal(){
+  const games=[];
+  for(let d=1;d<=MAXDAY;d++) for(let k=0;k<3;k++){
+    let v=null; try{v=JSON.parse(localStorage.getItem(key(d,k)))}catch(e){}
+    if(v&&v.g&&v.g.length) games.push({day:d,slot:k,gave:!!v.gave,g:v.g.map(g=>({w:INDEX.get(g.w),hint:!!g.hint})).filter(g=>g.w!=null)});
+  }
+  if(!games.length) return;
+  try{ await api("import",{games}); for(const g of games) localStorage.removeItem(key(g.day,g.slot)) }catch(e){}
+}
+async function logout(){
+  try{await api("logout")}catch(e){}
+  setToken(null); ME=null; BOARD=null; for(const k in SRV) delete SRV[k];
+  $("acctDlg").close(); if(ROOM) stopRoom(); renderAuth(); renderBoard(); open(num,slot);
+}
+function renderAuth(){
+  const b=$("acctBtn"); b.textContent=ME?ME.name+(ME.premium?" ⭐":""):"Přihlásit"; b.classList.toggle("in",!!ME);
+  document.querySelectorAll(".js-price").forEach(e=>e.textContent=INFO&&INFO.price||49);
+}
+function acctDlg(){
+  if(!ME) return authDlg("login");
+  $("myCode").textContent=ME.code; $("friendErr").textContent=""; $("friendCode").value="";
+  renderAcctPrem(); $("acctDlg").showModal(); renderFriends();
+}
+async function addFriend(e){
+  e.preventDefault(); const code=$("friendCode").value.trim(); if(!code) return;
+  try{ const v=await api("friend_add",{code}); $("friendErr").textContent=`${v.name} je teď mezi přáteli.`; $("friendCode").value=""; await refreshBoard(); renderFriends() }
+  catch(err){ $("friendErr").textContent=err.message }
+}
+function renderFriends(){
+  const ul=$("friendList"); ul.innerHTML="";
+  const fr=(BOARD&&BOARD.people||[]).filter(p=>!p.me);
+  if(!fr.length){const li=document.createElement("li");li.className="muted";li.textContent="Zatím nikoho. Pošli kamarádům svůj kód.";ul.append(li);return}
+  fr.forEach(p=>{const li=document.createElement("li");const n=document.createElement("span");n.textContent=p.name;
+    const x=document.createElement("button");x.type="button";x.className="mini";x.textContent="Odebrat";
+    x.onclick=async()=>{try{await api("friend_remove",{id:p.id});await refreshBoard();renderFriends()}catch(err){$("friendErr").textContent=err.message}};
+    li.append(n,x);ul.append(li)});
+}
+
+/* ---------- žebříček přátel ---------- */
+let BOARD=null;
+async function refreshBoard(){ if(!ME){BOARD=null;renderBoard();return} try{BOARD=await api("board")}catch(e){} renderBoard(); renderMyStats() }
+function renderBoard(){
+  const box=$("board"); box.innerHTML="";
+  if(!ME||!BOARD||BOARD.people.length<2){box.hidden=true;return} box.hidden=false;
+  const h=document.createElement("h3");h.textContent="Přátelé dnes";
+  const tb=document.createElement("table");
+  const head=document.createElement("tr");["","Lehká","Střední","Těžká","Série"].forEach(t=>{const th=document.createElement("th");th.textContent=t;head.append(th)});tb.append(head);
+  const score=p=>p.today.reduce((s,x)=>s+(x&&x.solved?1000-x.tries:0),0);
+  [...BOARD.people].sort((a,b)=>score(b)-score(a)||b.streak-a.streak).forEach(p=>{
+    const tr=document.createElement("tr");if(p.me)tr.className="me";
+    const n=document.createElement("td");n.textContent=p.name;tr.append(n);
+    p.today.forEach(x=>{const td=document.createElement("td");
+      td.textContent=!x?"–":x.solved?`💥 ${x.tries}`:x.gave?"🏳️":`${x.tries}…`;
+      td.title=!x?"nehrál(a)":x.solved?`uhodnuto na ${x.tries}${x.hints?`, ${x.hints}× nápověda`:""}`:x.gave?"vzdáno":"rozehráno";tr.append(td)});
+    const s=document.createElement("td");s.textContent=p.streak?`🔥 ${p.streak}`:"–";tr.append(s);tb.append(tr)});
+  const wrap=document.createElement("div");wrap.className="tablewrap";wrap.append(tb);
+  box.append(h,wrap);
+}
+
+/* ---------- týmová hra ---------- */
+let roomTimer=null;
+function teamDlg(){
+  if(!ME){ authDlg("login"); $("authErr").textContent="Týmová hra potřebuje přihlášení, ať ostatní vidí, kdo tipuje."; return }
+  $("teamErr").textContent=""; $("teamCode").value="";
+  $("teamWhat").textContent="Tým dostane vlastní tajné slovo, které se v denních hádankách neobjeví. Nápovědy v týmu nejsou a vzdát se musí všichni, kdo právě hrají.";
+  $("teamLvl").value=String(slot);
+  const can=!!ME.premium; $("teamNewRow").hidden=!can; $("teamWhat").hidden=!can; $("teamPrem").hidden=can||!(INFO&&INFO.pay);
+  $("teamDlg").showModal();
+}
+async function createRoom(){
+  try{ const v=await api("room_create",{day:num,slot:Number($("teamLvl").value)}); $("teamDlg").close(); enterRoom(v) }
+  catch(e){ if(e.code===402){ $("teamDlg").close(); premDlg() } else $("teamErr").textContent=e.message }
+}
+async function joinRoom(code){
+  try{ const v=await api("room_join",{code}); if($("teamDlg").open)$("teamDlg").close(); enterRoom(v) }catch(e){ if($("teamDlg").open) $("teamErr").textContent=e.message; else setStatus(e.message,true) }
+}
+function enterRoom(v){
+  ++openTok; ROOM=null; num=v.day; slot=v.slot;
+  R=WORDS.length?{top:null}:null; secretIdx=-1; busy=false;
+  try{history.replaceState(null,"","?tym="+v.code)}catch(e){}
+  applyRoom(v,false); setStatus("");
+  clearInterval(roomTimer); roomTimer=setInterval(pollRoom,2500);
+}
+function roomSt(v){
+  const g=v.g.map(x=>({w:WORDS[x.w],r:x.r,by:x.by}));
+  return {g,solved:v.solved,gave:v.gave,hints:0,last:g.length?g[g.length-1].w:null};
+}
+async function applyRoom(v,mine){
+  const prev=ROOM, firstLoad=!prev;
+  const prevN=st&&prev?st.g.length:0, wasDone=!!(st&&prev&&(st.solved||st.gave));
+  if(prev&&prev.code===v.code&&v.ver<prev.ver) return;   // opožděná odpověď na starší dotaz
+  const prevVote=prev&&prev.vote;
+  ROOM={code:v.code,ver:v.ver,turn:v.turn,me:v.me,owner:v.owner,members:v.members,turnAge:v.turnAge,turnAt:performance.now(),vote:v.vote||{ids:[],by:[],need:0}};
+  st=roomSt(v);
+  if(!firstLoad) voteNotice(prevVote);
+  const nowDone=st.solved||st.gave;
+  if(mine) return;                                   // vlastní tip dokreslí submit()
+  if(nowDone&&secretIdx<0) await reveal(false);
+  if(firstLoad){ setBroken(!!st.solved); render(); animateTo(st.solved?100:bestTemp()); return }
+  render(st.g.length>prevN);
+  if(st.g.length>prevN&&!nowDone){
+    const g=st.g[st.g.length-1]; animateTo(bestTemp()); beep(temp(g.r));
+    setStatus(`${g.by} tipl(a) „${show(g.w)}“: ${g.r.toLocaleString("cs-CZ")}. místo, ${temp(g.r)} °C.`); nextTurnMsg();
+  }
+  if(nowDone&&!wasDone){ if(st.solved) celebrate(); else setStatus("Tým to vzdal.") }
+}
+function nextTurnMsg(append){
+  if(!ROOM||st.solved||st.gave||ROOM.members.length<2) return;
+  const t=ROOM.members.find(m=>m.id===ROOM.turn); const s=$("status");
+  const msg=ROOM.turn===ROOM.me?" Jsi na tahu!":t?` Na tahu: ${t.name}.`:"";
+  s.append(msg); if(ROOM.turn===ROOM.me){ buzz(30); if(document.hidden) beep(70) }
+}
+async function pollRoom(){
+  if(!ROOM||busy) return;
+  try{ const v=await api("room_state",{code:ROOM.code,ver:ROOM.ver});
+    if(!ROOM) return;
+    if(v.same){ ROOM.turnAge=v.turnAge; ROOM.turnAt=performance.now(); if(v.vote){const pv=ROOM.vote;ROOM.vote=v.vote;voteNotice(pv)} renderRoom(); return }
+    applyRoom(v,false);
+  }catch(e){ if(e.code===403||e.code===404){ setStatus(e.message,true); stopRoom(); open(MAXDAY,0) } }
+}
+function renderRoom(){
+  const bar=$("teamBar"); bar.hidden=!ROOM; if(!ROOM) return;
+  $("teamCodeLbl").textContent=ROOM.code;
+  const ul=$("teamMembers"); ul.innerHTML="";
+  ROOM.members.forEach(m=>{const li=document.createElement("li");li.textContent=m.name+(m.id===ROOM.me?" (ty)":"");
+    if(m.id===ROOM.turn&&ROOM.members.length>1&&!(st.solved||st.gave)) li.className="turn"; ul.append(li)});
+  const age=ROOM.turnAge+(performance.now()-ROOM.turnAt)/1000;
+  $("teamSkip").hidden=!(ROOM.members.length>1&&ROOM.turn!==ROOM.me&&!(st.solved||st.gave)&&(ROOM.owner===ROOM.me||age>=45));
+  renderVote();
+  $("teamTurn").textContent=st.solved||st.gave?"Hra skončila.":ROOM.members.length<2?"Pošli kamarádům kód nebo odkaz. Do té doby můžeš tipovat sám.":ROOM.turn===ROOM.me?"Jsi na tahu!":`Na tahu: ${(ROOM.members.find(m=>m.id===ROOM.turn)||{}).name||"…"}`;
+}
+function voteNotice(prev){
+  const v=ROOM&&ROOM.vote; if(!v||st&&(st.solved||st.gave)) return;
+  const had=prev?prev.ids.length:0;
+  if(v.ids.length>had&&!v.ids.includes(ROOM.me)){ setStatus(`${v.by[v.by.length-1]} navrhuje to vzdát. Souhlasíš?`); buzz(30) }
+  else if(had&&!v.ids.length&&prev&&!(st&&st.gave)) setStatus("Návrh na vzdání padl, hraje se dál.");
+}
+function renderVote(){
+  const v=ROOM.vote, box=$("teamVote"), done=st.solved||st.gave;
+  box.hidden=done||!v||!v.ids.length; if(!done) $("giveBtn").hidden=!box.hidden; if(box.hidden) return;
+  const mine=v.ids.includes(ROOM.me), cnt=`(${v.ids.length}/${Math.max(v.need,v.ids.length)})`;
+  $("teamVoteText").textContent=mine?`${v.ids[0]===ROOM.me?"Navrhl(a) jsi to vzdát.":"Souhlasíš se vzdáním."} Čeká se na ostatní ${cnt}.`:`${v.by.join(", ")} chce to vzdát ${cnt}. Souhlasíš?`;
+  $("voteYes").hidden=mine; $("voteNo").textContent=mine&&v.ids[0]===ROOM.me?"Zrušit návrh":"Hrát dál";
+}
+function stopRoom(){ clearInterval(roomTimer); roomTimer=null; ROOM=null; try{history.replaceState(null,"",location.pathname)}catch(e){} $("teamBar").hidden=true }
+async function leaveRoom(){ const c=ROOM&&ROOM.code; stopRoom(); if(c) try{await api("room_leave",{code:c})}catch(e){} open(MAXDAY,0) }
+function joinFromUrl(){
+  const c=new URLSearchParams(location.search).get("tym"); if(!c||ROOM) return;
+  if(!ME){ authDlg("login"); $("authErr").textContent="Pro vstup do týmové hry se přihlas nebo založ účet."; return }
+  joinRoom(c);
+}
+
+/* ---------- prémium (QR platba) ---------- */
+let premTimer=null;
+const fmtDate=d=>{const [y,m,dd]=String(d).split("-");return `${+dd}. ${+m}. ${y}`};
+const daysLeft=d=>Math.ceil((new Date(d+"T23:59:59")-new Date())/864e5);
+function renderAcctPrem(){
+  const box=$("acctPrem"); box.innerHTML=""; if(!ME) return;
+  const p=document.createElement("p"), b=document.createElement("button"); b.type="button"; b.className="mini"; b.onclick=()=>{$("acctDlg").close();premDlg()};
+  if(ME.premium){ const left=daysLeft(ME.until); p.textContent=`⭐ Prémium platí do ${fmtDate(ME.until)}.`+(left<=30?` Zbývá ${left} dní.`:""); b.textContent="Prodloužit o rok"; box.append(p); if(left<=30) box.append(b) }
+  else if(INFO&&INFO.pay){ p.textContent=`Prémium: týmové místnosti pro tebe a 10 kamarádů za ${INFO.price} Kč na rok.`; b.textContent="Koupit prémium"; box.append(p,b) }
+  box.hidden=!box.childElementCount;
+}
+function loadQrLib(){ return window.qrcode?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement("script");s.src="qrcode.min.js";s.onload=res;s.onerror=rej;document.head.append(s)}) }
+async function drawQr(text){
+  const box=$("premQr");
+  try{ await loadQrLib(); const q=qrcode(0,"M"); q.addData(text); q.make(); box.innerHTML=q.createSvgTag({cellSize:4,margin:0,scalable:true}) }
+  catch(e){ box.textContent="QR kód se nepodařilo vykreslit. Zadej platbu ručně podle údajů vedle." }
+}
+const fmtIban=s=>s.replace(/(.{4})/g,"$1 ").trim();
+function premState(v,justNow){
+  const u=v.user, s=$("premState");
+  if(u.premium) s.textContent=(justNow?"Hotovo, platba dorazila! ":"")+`Prémium platí do ${fmtDate(u.until)}.`+(daysLeft(u.until)<=30?" Zaplacením ho prodloužíš o další rok.":"");
+  else s.textContent=v.auto?"Čekám na platbu. Po připsání se prémium zapne samo, obvykle během pár minut. Platba z jiné banky může dorazit až další pracovní den.":"Po připsání platby prémium zapnu, obvykle do 24 hodin.";
+}
+async function premDlg(){
+  if(!ME) return authDlg("login");
+  $("premState").textContent="Načítám…"; $("premQr").innerHTML=""; ["premAcc","premAmt","premVs"].forEach(i=>$(i).textContent="…");
+  if(!$("premDlg").open) $("premDlg").showModal();
+  let v; try{ v=await api("premium_info") }catch(e){ $("premState").textContent=e.message; return }
+  ME=v.user; renderAuth();
+  $("premAcc").textContent=fmtIban(v.iban)+(v.recipient?` (${v.recipient})`:""); $("premAmt").textContent=v.price+" Kč"; $("premVs").textContent=v.vs;
+  drawQr(v.spayd); premState(v);
+  clearInterval(premTimer);
+  if(v.auto) premTimer=setInterval(async()=>{
+    if(!$("premDlg").open){clearInterval(premTimer);return}
+    try{ const r=await api("premium_check"); const was=ME.until; ME=r.user; renderAuth(); premState({...v,user:r.user},r.user.until!==was&&r.user.premium); if(r.user.until!==was&&r.user.premium){beep(90);buzz([40,40,40])} }catch(e){}
+  },40000);
+}
+
+/* ---------- osobní statistiky ---------- */
+function myStats(){
+  let played=0,solved=0,tries=[],streak=0,best=0,run=0,gave=0;
+  const buckets=[[1,10],[11,25],[26,50],[51,100],[101,1e9]],dist=[0,0,0,0,0];
+  for(let d=1;d<=MAXDAY;d++){
+    let any=false;
+    for(let k=0;k<3;k++){
+      const v=load(d,k); const t=v.g.filter(g=>!g.hint).length;
+      if(v.g.length) played++;
+      if(v.solved){solved++;any=true;tries.push(t);dist[buckets.findIndex(([a,b])=>t>=a&&t<=b)]++}
+      else if(v.gave) gave++;
+    }
+    if(any){run++;best=Math.max(best,run)} else if(d<MAXDAY) run=0;
+  }
+  streak=run;
+  return {played,solved,gave,avg:tries.length?Math.round(tries.reduce((a,b)=>a+b,0)/tries.length):0,streak,best,dist,buckets};
+}
+function renderMyStats(){
+  const box=$("myStats"); box.innerHTML="";
+  if(ROOM){box.hidden=true;return}
+  let m;
+  if(ME){ const p=BOARD&&BOARD.people.find(x=>x.me); if(!p){box.hidden=true;return}
+    m={played:p.played,solved:p.solved,avg:p.avg,streak:p.streak,best:p.streak} }
+  else m=myStats();
+  if(!m.played){box.hidden=true;return} box.hidden=false;
+  const h=document.createElement("h3");h.textContent="Tvoje statistiky";
+  const nums=document.createElement("div");nums.className="mynums";
+  [["Odehráno",m.played],["Uhodnuto",m.played?Math.round(100*m.solved/m.played)+" %":"—"],["Průměr pokusů",m.solved?m.avg:"—"],["Série dní",m.streak+(m.best>m.streak?" (max "+m.best+")":"")]].forEach(([k,v])=>{
+    const d=document.createElement("div");const b=document.createElement("b");b.textContent=v;const sp=document.createElement("span");sp.textContent=k;d.append(b,sp);nums.append(d)});
+  box.append(h,nums);
+  if(!ME&&m.solved){
+    const dist=document.createElement("div");dist.className="dist";const mx=Math.max(...m.dist,1);
+    const mine=st&&st.solved?st.g.filter(g=>!g.hint).length:-1;
+    m.buckets.forEach(([a,b],k)=>{const row=document.createElement("div");
+      if(mine>=a&&mine<=b) row.className="me";
+      const l=document.createElement("span");l.textContent=b>1e8?a+"+":a+"–"+b;
+      const bar=document.createElement("span");const i=document.createElement("i");i.style.width=(100*m.dist[k]/mx)+"%";bar.append(i);
+      const c=document.createElement("em");c.textContent=m.dist[k];row.append(l,bar,c);dist.append(row)});
+    const lab=document.createElement("p");lab.className="label";lab.style.margin="0";lab.textContent="Na kolik pokusů uhodnuto";
+    box.append(lab,dist);
+  }
+}
+
+/* ---------- ovládání ---------- */
+function buildArchive(){
+  const a=$("archive"); a.innerHTML="";
+  for(let n=MAXDAY;n>=1;n--){const o=document.createElement("option");o.value=n;o.textContent=n===MAXDAY?`den ${n} (dnes)`:`den ${n}`;a.append(o)}
+  a.value=String(num);
+}
+$("archive").onchange=e=>open(Number(e.target.value),0);
+renderSoundBtn();
+$("soundBtn").onclick=()=>{SOUND=!SOUND;try{localStorage.setItem("teplomer-zvuk",SOUND?"1":"0")}catch(e){};renderSoundBtn();if(SOUND)beep(50)};
+$("form").addEventListener("submit",e=>{e.preventDefault();submit($("guess").value)});
+$("hintBtn").onclick=hint;
+const GIVE=["Opravdu to chceš vzdát? Teploměr už si chystal ohňostroj.","Vzdát se? Rtuť je zklamaná a dívá se na tebe smutnýma očima.","Fakt? Ještě jeden tip a třeba to bouchne!","Odvážné rozhodnutí. Teploměr ho bude respektovat, ale potají brečet.","Vzdát se teď? To je jako odejít z kina pět minut před koncem."];
+$("giveBtn").onclick=()=>{$("giveYes").textContent=ROOM&&ROOM.members.length>1?"Ano, navrhnout":"Ano, ukaž slovo";$("giveText").textContent=ROOM?(ROOM.members.length>1?"Navrhnout týmu, že to vzdáte? Hra skončí, až souhlasí všichni, kdo právě hrají.":"Opravdu to chceš vzdát?"):GIVE[Math.floor(Math.random()*GIVE.length)];$("giveConfirm").hidden=false;$("giveNo").focus()};
+$("giveNo").onclick=()=>{$("giveConfirm").hidden=true;setStatus("Tak to je duch! Teploměr věřil, že to nevzdáš.");$("guess").focus()};
+$("giveYes").onclick=async()=>{
+  $("giveConfirm").hidden=true;
+  if(ROOM){ voteAct("room_give","Návrh odeslán. Čeká se na souhlas ostatních."); return }
+  setBusy(true); await reveal(true); busy=false;
+  if(secretIdx<0){ render(); return }
+  st.gave=true; save(); render(); setStatus("Vzdát se taky chce odvahu. Zítra to rozbiješ."); if(ME) refreshBoard();
+};
+$("acctBtn").onclick=acctDlg;
+$("authForm").addEventListener("submit",authSubmit);
+$("authSwitch").onclick=()=>authDlg($("authDlg").dataset.mode==="login"?"register":"login");
+$("friendForm").addEventListener("submit",addFriend);
+$("logoutBtn").onclick=logout;
+$("copyCode").onclick=async()=>{try{await navigator.clipboard.writeText(ME.code);$("copyCode").textContent="Zkopírováno ✓"}catch(e){}setTimeout(()=>$("copyCode").textContent="Kopírovat",1800)};
+$("teamBtn").onclick=teamDlg;
+$("teamBuy").onclick=()=>{$("teamDlg").close();premDlg()};
+$("teamNew").onclick=createRoom;
+$("teamJoinForm").addEventListener("submit",e=>{e.preventDefault();const c=$("teamCode").value.trim();if(c)joinRoom(c)});
+$("teamLink").onclick=async()=>{const u=location.origin+location.pathname+"?tym="+ROOM.code;
+  if(navigator.share&&matchMedia("(pointer:coarse)").matches){try{await navigator.share({text:"Pojď hádat do týmu v Teploměru: "+u});return}catch(e){if(e&&e.name==="AbortError")return}}
+  try{await navigator.clipboard.writeText(u);$("teamLink").textContent="Odkaz zkopírován ✓";setTimeout(()=>$("teamLink").textContent="Pozvat",1800)}catch(e){prompt("Zkopíruj odkaz:",u)}};
+$("teamLeave").onclick=leaveRoom;
+async function voteAct(a,msg){
+  if(!ROOM) return; $("voteYes").disabled=$("voteNo").disabled=true;
+  try{ const v=await api(a,{code:ROOM.code}); applyRoom(v,false); if(!(st.solved||st.gave)) setStatus(msg) }
+  catch(e){ setStatus(e.message,true) }
+  finally{ $("voteYes").disabled=$("voteNo").disabled=false }
+}
+$("voteYes").onclick=()=>voteAct("room_give","Souhlasíš. Čeká se na ostatní.");
+$("voteNo").onclick=()=>voteAct("room_give_no","Hraje se dál!");
+$("teamSkip").onclick=async()=>{try{applyRoom(await api("room_skip",{code:ROOM.code}),false)}catch(e){setStatus(e.message,true)}};
+document.querySelectorAll("dialog [data-close]").forEach(b=>b.onclick=()=>b.closest("dialog").close());
+setInterval(()=>{if(ROOM)renderRoom()},1000);
+
+/* ---------- start ---------- */
+st=empty(); buildThermo(); render();
+(async()=>{
+  try{ INFO=await api("info"); MAXDAY=INFO.today; ME=INFO.user; if(!ME&&TOKEN) setToken(null) }
+  catch(e){ $("loadText").textContent="Server teď neodpovídá. Obnov stránku za chvilku."; console.error(e); return }
+  num=MAXDAY; buildArchive(); renderAuth();
+  try{ await loadDict() }catch(err){ $("loadText").textContent="Slovník se nepodařilo načíst. Obnov stránku a zkus to znovu."; console.error(err); return }
+  if(ME){ try{ SRV[num]=(await api("state",{day:num})).s.map(fromServer) }catch(e){} }
+  slot=Math.max(0,[0,1,2].findIndex(k=>{const v=load(num,k);return !v.solved&&!v.gave}));
+  await open(num,slot); $("loading").hidden=true; loadExtras(); loadVectors(); $("guess").focus({preventScroll:true});
+})();
+</script>
+
+</body>
+</html>
